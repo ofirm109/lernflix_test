@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>קבלת חומרי הדרכה | מערכת שבץ-נא ותבנית אפיון כלי AI</title>
+<meta name="description" content="הזינו כתובת מייל וקבלו את חומרי ההדרכה מהמפגש: מערכת שבץ-נא ותבנית אפיון לכלי AI.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#16305a;
+  --navy-2:#24518f;
+  --gold:#f0b429;
+  --ink:#25313f;
+  --muted:#5a6a7b;
+  --line:#e3e9f2;
+  --bg:#eef1f6;
+  --card:#ffffff;
+  --ok:#0f7b52;
+  --err:#c0392b;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Heebo',Arial,Helvetica,sans-serif;
+  background:var(--bg);
+  background-image:radial-gradient(1200px 600px at 80% -10%, #dce7fa 0%, transparent 60%),
+                   radial-gradient(900px 500px at -10% 110%, #e4ecfb 0%, transparent 55%);
+  color:var(--ink);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:28px 16px 48px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.shell{width:100%;max-width:660px;}
+
+.card{
+  background:var(--card);
+  border-radius:18px;
+  overflow:hidden;
+  box-shadow:0 18px 45px -18px rgba(16,32,63,.30), 0 2px 8px rgba(16,32,63,.06);
+}
+
+.hero{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);
+  padding:38px 40px 34px;
+  position:relative;
+}
+.hero::after{
+  content:"";position:absolute;inset:auto 0 0 0;height:4px;background:var(--gold);
+}
+.eyebrow{
+  font-size:12px;font-weight:700;letter-spacing:1.5px;color:#a8c4ef;margin:0 0 10px;
+}
+.hero h1{
+  margin:0;font-size:29px;line-height:1.28;font-weight:800;color:#fff;letter-spacing:-.3px;
+}
+.hero p{
+  margin:10px 0 0;font-size:16px;color:#c7dcff;font-weight:400;
+}
+
+.body{padding:34px 40px 38px;}
+
+.lead{
+  margin:0 0 24px;font-size:18px;font-weight:500;color:var(--ink);
+}
+
+/* form */
+form{margin:0;}
+.field{position:relative;}
+label{
+  display:block;font-size:13.5px;font-weight:500;color:var(--muted);margin-bottom:8px;
+}
+input[type=email]{
+  width:100%;font-family:inherit;font-size:16.5px;color:var(--ink);
+  padding:15px 17px;border:1.5px solid #d6deec;border-radius:11px;background:#fbfcfe;
+  transition:border-color .16s,box-shadow .16s,background .16s;
+  direction:ltr;text-align:right;
+}
+input[type=email]::placeholder{color:#a3b0c0;direction:rtl;text-align:right;}
+input[type=email]:focus{
+  outline:none;border-color:var(--navy-2);background:#fff;
+  box-shadow:0 0 0 4px rgba(36,81,143,.13);
+}
+input[type=email][aria-invalid="true"]{border-color:var(--err);box-shadow:0 0 0 4px rgba(192,57,43,.10);}
+
+button{
+  margin-top:14px;width:100%;font-family:inherit;font-size:17px;font-weight:700;color:#fff;
+  background:linear-gradient(135deg,var(--navy-2) 0%,var(--navy) 100%);
+  border:0;border-radius:11px;padding:15px 20px;cursor:pointer;
+  transition:transform .12s,box-shadow .16s,opacity .16s;
+  box-shadow:0 8px 20px -8px rgba(22,48,90,.65);
+}
+button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 26px -9px rgba(22,48,90,.7);}
+button:active:not(:disabled){transform:translateY(0);}
+button:disabled{opacity:.62;cursor:default;box-shadow:none;}
+
+.spinner{
+  display:none;width:17px;height:17px;border:2.5px solid rgba(255,255,255,.35);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;
+  vertical-align:-3px;margin-left:9px;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+button.loading .spinner{display:inline-block;}
+
+.note{margin:13px 0 0;font-size:13px;color:#8593a3;text-align:center;}
+
+/* messages */
+.msg{
+  display:none;margin-top:18px;padding:15px 18px;border-radius:11px;
+  font-size:15.5px;line-height:1.6;font-weight:500;
+}
+.msg.show{display:block;animation:pop .28s ease-out;}
+@keyframes pop{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
+.msg.ok{background:#e8f6ef;color:var(--ok);border:1px solid #b9e3d0;}
+.msg.err{background:#fdecea;color:var(--err);border:1px solid #f5c6c0;}
+
+/* what you get */
+.divider{height:1px;background:var(--line);margin:32px 0 26px;}
+.sub{margin:0 0 16px;font-size:13px;font-weight:700;letter-spacing:1.2px;color:#8593a3;}
+.item{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;background:#f6f8fc;
+  border:1px solid #dde5f2;border-radius:11px;margin-bottom:11px;}
+.num{flex:0 0 28px;height:28px;border-radius:50%;background:var(--navy-2);color:#fff;
+  font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+.item h3{margin:0 0 3px;font-size:16px;font-weight:700;color:var(--navy);}
+.item p{margin:0;font-size:14.5px;color:var(--muted);line-height:1.55;}
+
+.foot{margin:26px 0 0;text-align:center;font-size:13.5px;color:#8593a3;line-height:1.7;}
+.foot strong{color:var(--muted);font-weight:500;}
+
+/* success takeover */
+.done{display:none;text-align:center;padding:8px 0 4px;}
+.done.show{display:block;animation:pop .3s ease-out;}
+.check{width:66px;height:66px;border-radius:50%;background:#e8f6ef;border:2px solid #b9e3d0;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 18px;
+  font-size:32px;color:var(--ok);font-weight:700;}
+.done h2{margin:0 0 8px;font-size:23px;font-weight:800;color:var(--navy);}
+.done p{margin:0 0 6px;font-size:16px;color:var(--muted);}
+.done .again{margin-top:20px;background:none;border:0;color:var(--navy-2);font-size:14.5px;
+  font-weight:500;text-decoration:underline;cursor:pointer;box-shadow:none;width:auto;padding:6px;}
+.done .again:hover{transform:none;box-shadow:none;}
+
+@media(max-width:560px){
+  .hero{padding:30px 24px 28px;}
+  .hero h1{font-size:24px;}
+  .body{padding:28px 24px 32px;}
+  .lead{font-size:16.5px;}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="card">
+
+    <div class="hero">
+      <p class="eyebrow">אגף למידה ופיתוח ארגוני</p>
+      <h1>חומרי הדרכה מהמפגש</h1>
+      <p>מערכת שבץ-נא ותבנית אפיון כלי AI</p>
+    </div>
+
+    <div class="body">
+
+      <div id="formArea">
+        <p class="lead">אנא הזינו את כתובת המייל שלכם כדי לקבל את החומרים ישירות למייל.</p>
+
+        <form id="f" novalidate>
+          <div class="field">
+            <label for="email">כתובת אימייל</label>
+            <input type="email" id="email" name="email" placeholder="your@email.com"
+                   autocomplete="email" inputmode="email" required>
+          </div>
+          <button type="submit" id="btn">
+            <span class="label">שלחו לי את החומרים</span><span class="spinner"></span>
+          </button>
+          <p class="note">המייל נשלח מיידית. אם אינו מגיע — כדאי לבדוק בתיקיית הספאם.</p>
+        </form>
+
+        <div class="msg err" id="err"></div>
+      </div>
+
+      <div class="done" id="done">
+        <div class="check">&#10003;</div>
+        <h2>המייל בדרך אליכם</h2>
+        <p>שלחנו את החומרים לכתובת <strong id="sentTo"></strong></p>
+        <p style="font-size:14.5px;color:#8593a3;">לא רואים אותו? כדאי לבדוק בתיקיית הספאם או בקידומי מכירות.</p>
+        <button type="button" class="again" id="again">שליחה לכתובת נוספת</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <p class="sub">מה תקבלו במייל</p>
+
+      <div class="item">
+        <div class="num">1</div>
+        <div>
+          <h3>מערכת &rdquo;שבץ-נא&ldquo;</h3>
+          <p>המערכת המיועדת לפיתוח, תכנון וניהול של קורסים וכנסים.</p>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="num">2</div>
+        <div>
+          <h3>תבנית אפיון <span style="font-weight:400;font-size:13.5px;color:#8593a3;">(קובץ מצורף)</span></h3>
+          <p>תבנית עבודה מסודרת לאפיון של מערכות וכלים חדשים באמצעות בינה מלאכותית (AI).</p>
+        </div>
+      </div>
+
+      <p class="foot">
+        <strong>אופיר מזרחי</strong> · מפתח למידה<br>
+        משרד מבקר המדינה ונציבת תלונות הציבור
+      </p>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ↓↓↓  השורה היחידה שצריך לערוך  ↓↓↓
+   הדביקו כאן את כתובת ה-Web App שקיבלתם מ-Google Apps Script
+   (היא נראית כך: https://script.google.com/macros/s/AKfy..../exec)
+   ============================================================ */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzw3AhqOPuYnpmrXi07UiV-upGuvPWF_HjC3r3E5CRAJYT00pUKDf3ekWptwiDrGypo/exec";
+/* ============================================================ */
+
+const f = document.getElementById('f');
+const emailEl = document.getElementById('email');
+const btn = document.getElementById('btn');
+const errBox = document.getElementById('err');
+const formArea = document.getElementById('formArea');
+const doneBox = document.getElementById('done');
+const sentTo = document.getElementById('sentTo');
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+
+function showErr(text){
+  errBox.textContent = text;
+  errBox.classList.add('show');
+  emailEl.setAttribute('aria-invalid','true');
+}
+function clearErr(){
+  errBox.classList.remove('show');
+  emailEl.removeAttribute('aria-invalid');
+}
+function busy(on){
+  btn.disabled = on;
+  btn.classList.toggle('loading', on);
+  btn.querySelector('.label').textContent = on ? 'שולח...' : 'שלחו לי את החומרים';
+}
+
+emailEl.addEventListener('input', clearErr);
+
+f.addEventListener('submit', async function(e){
+  e.preventDefault();
+  clearErr();
+
+  const email = emailEl.value.trim();
+  if(!email){ showErr('נא להזין כתובת אימייל.'); emailEl.focus(); return; }
+  if(!EMAIL_RE.test(email)){ showErr('כתובת האימייל אינה תקינה. בדקו שוב.'); emailEl.focus(); return; }
+
+  if(SCRIPT_URL.indexOf('script.google.com') === -1){
+    showErr('האתר עדיין לא חובר למנגנון השליחה. יש להדביק את כתובת ה-Apps Script בקובץ index.html.');
+    return;
+  }
+
+  busy(true);
+  try{
+    // האתר מוסר לסקריפט את כתובת הבסיס שלו, כדי שידע מהיכן למשוך את הקובץ המצורף.
+    // כך אין צורך להגדיר כתובת קבועה בשום מקום.
+    const base = location.href.split('?')[0].split('#')[0].replace(/[^\/]*$/, '');
+
+    // הגוף נשלח כטקסט פשוט כדי להימנע מבקשת preflight של CORS
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ email: email, base: base })
+    });
+    const data = await res.json();
+
+    if(data && data.ok){
+      sentTo.textContent = email;
+      formArea.style.display = 'none';
+      doneBox.classList.add('show');
+    }else{
+      showErr((data && data.error) ? data.error : 'השליחה נכשלה. נסו שוב בעוד רגע.');
+    }
+  }catch(ex){
+    showErr('לא הצלחנו להתחבר לשרת השליחה. בדקו את החיבור לאינטרנט ונסו שוב.');
+  }finally{
+    busy(false);
+  }
+});
+
+document.getElementById('again').addEventListener('click', function(){
+  doneBox.classList.remove('show');
+  formArea.style.display = '';
+  emailEl.value = '';
+  clearErr();
+  emailEl.focus();
+});
+</script>
+</body>
+</html>
