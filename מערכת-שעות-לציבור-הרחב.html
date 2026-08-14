@@ -1,0 +1,2937 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מערכת שעות — לוח מחיק דיגיטלי</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef1f6; --panel:#ffffff; --line:#e3e8f0; --line-strong:#c8d1e0;
+  --txt:#1c2333; --muted:#6b7690; --accent:#3563e9; --accent-soft:#e8eefc;
+  --danger:#d64545; --ok:#12b886;
+  --slot-h:18px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  font-family:"Segoe UI","Heebo","Arial Hebrew",Arial,sans-serif;
+  background:var(--bg); color:var(--txt); font-size:14px;
+  display:flex; flex-direction:column; overflow:hidden;
+  -webkit-user-select:none; user-select:none;
+}
+input,textarea{user-select:text; -webkit-user-select:text;}
+
+/* ---------- Top bar ---------- */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--line);
+  flex:0 0 auto; gap:12px;
+}
+.brand{font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px;}
+.brand small{font-weight:400; color:var(--muted); font-size:12px;}
+.actions{display:flex; gap:8px; align-items:center;}
+
+.btn{
+  border:1px solid var(--line-strong); background:var(--panel); color:var(--txt);
+  border-radius:8px; padding:7px 14px; font-size:13.5px; cursor:pointer;
+  font-family:inherit; transition:background .12s, border-color .12s;
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.btn:hover{background:#f4f7fd;}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+.btn.primary:hover{background:#2b53c9;}
+.btn.small{padding:5px 10px; font-size:12.5px; border-radius:7px;}
+.btn.danger{color:var(--danger); border-color:#eec3c3;}
+.btn.danger:hover{background:#fdf0f0;}
+
+/* file menu */
+.menu-wrap{position:relative;}
+.menu{
+  /* עוגן בקצה הפנימי כדי שהתפריט ייפתח לתוך המסך ולא ייחתך בשוליים */
+  position:absolute; top:calc(100% + 6px); inset-inline-end:0; z-index:300;
+  background:var(--panel); border:1px solid var(--line-strong); border-radius:10px;
+  box-shadow:0 10px 30px rgba(20,30,60,.15); min-width:230px; padding:6px;
+  max-width:calc(100vw - 24px);
+}
+.menu button{
+  display:flex; width:100%; text-align:start; border:0; background:none; cursor:pointer;
+  padding:9px 12px; border-radius:7px; font-size:13.5px; font-family:inherit; gap:9px; align-items:center;
+}
+.menu button:hover{background:var(--accent-soft);}
+.menu hr{border:0; border-top:1px solid var(--line); margin:5px 4px;}
+.menu .mi-danger{color:var(--danger);}
+
+/* ---------- Tabs ---------- */
+.tabsbar{
+  display:flex; align-items:center; gap:8px; padding:8px 16px 0;
+  background:var(--bg); flex:0 0 auto; flex-wrap:wrap;
+}
+.tabs{display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+.tab{
+  background:#dde3ee; border:1px solid transparent; border-radius:9px 9px 0 0;
+  padding:7px 16px 8px; cursor:pointer; font-size:13.5px; color:#4a5570;
+  display:flex; align-items:center; gap:8px; transition:background .12s;
+}
+.tab small{font-size:11px; color:var(--muted); direction:ltr;}
+.tab:hover{background:#e9edf6;}
+.tab.active{background:var(--panel); border-color:var(--line-strong); border-bottom-color:var(--panel); color:var(--txt); font-weight:600;}
+.tab.drop-hover{outline:2px dashed var(--accent); outline-offset:-2px;}
+.tab-add{
+  background:var(--accent); color:#fff; border-radius:9px; padding:7px 16px;
+  cursor:pointer; font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:6px;
+  box-shadow:0 1px 4px rgba(53,99,233,.35);
+}
+.tab-add:hover{background:#2b53c9;}
+@keyframes tabFlash{0%,100%{background:var(--panel);} 50%{background:#ffe08a;}}
+.tab.flash{animation:tabFlash .7s ease 3;}
+.tip{color:var(--muted); font-size:12.5px;}
+.wc-sep{flex:1 1 auto;}
+.nav-group{display:flex; gap:6px;}
+.nav-btn.active{
+  background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:700;
+  box-shadow:inset 0 -2px 0 var(--accent);
+}
+.nav-btn.active:hover{background:var(--accent-soft);}
+.nc-q{font-size:14.5px; font-weight:600; margin-bottom:8px;}
+.nc-note{font-size:12.5px; color:var(--muted); line-height:1.7; margin:10px 0 0;}
+.tour-modal{width:520px;}
+.tour-badge{display:inline-block; background:var(--accent-soft); color:var(--accent); font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:20px; margin-bottom:10px;}
+.tour-modal h3{font-size:18px; margin-bottom:10px;}
+.tour-body{font-size:14px; line-height:1.85; color:#3a4356;}
+.tour-body ul{margin:8px 12px 0; padding-inline-start:18px;}
+.tour-body li{margin-bottom:5px;}
+.tour-body b{color:var(--txt);}
+.tour-dots{display:flex; gap:6px; justify-content:center; margin-top:16px;}
+.tour-dots span{width:8px; height:8px; border-radius:50%; background:var(--line-strong);}
+.tour-dots span.on{background:var(--accent); transform:scale(1.25);}
+
+/* ---------- בועיות הדרכה על המסך ---------- */
+#cmSpot{
+  position:fixed; border-radius:10px; z-index:1200; pointer-events:none;
+  box-shadow:0 0 0 9999px rgba(14,22,42,.60); transition:top .18s, left .18s, width .18s, height .18s;
+  outline:3px solid var(--accent); outline-offset:2px;
+}
+#cmSpot[hidden]{display:none;}
+#cmBubble{
+  position:fixed; z-index:1201; width:340px; max-width:calc(100vw - 24px);
+  background:#fff; border-radius:13px; padding:15px 17px 13px;
+  box-shadow:0 16px 44px rgba(10,20,40,.4); font-size:13.5px; line-height:1.7;
+}
+#cmBubble[hidden]{display:none;}
+.cm-badge{display:inline-block; background:var(--accent-soft); color:var(--accent); font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; margin-bottom:7px;}
+#cmBubble h4{font-size:15px; margin-bottom:5px;}
+#cmText{color:#3a4356;}
+#cmText b{color:var(--txt);}
+.cm-btns{display:flex; gap:7px; margin-top:13px;}
+.cm-btns .btn{flex:0 0 auto;}
+.cm-btns .btn.primary{flex:1;}
+
+/* ---------- Layout ---------- */
+.layout{display:flex; flex:1 1 auto; min-height:0; gap:0;}
+
+/* ---------- Sidebar (warehouse) ---------- */
+.sidebar{
+  flex:0 0 250px; background:var(--panel); border-inline-start:1px solid var(--line);
+  display:flex; flex-direction:column; min-height:0;
+  border-inline-end:1px solid var(--line);
+}
+.sidebar.drop-hover{background:var(--accent-soft); outline:2px dashed var(--accent); outline-offset:-4px;}
+.wh-head{
+  padding:12px 14px 8px; font-weight:700; font-size:14px; flex:0 0 auto;
+  display:flex; flex-direction:column; gap:2px;
+}
+.wh-head .hint{font-weight:400; font-size:11.5px; color:var(--muted);}
+.wh-list{flex:1 1 auto; overflow-y:auto; padding:4px 12px 10px; display:flex; flex-direction:column; gap:8px;}
+.wh-empty{color:var(--muted); font-size:12.5px; text-align:center; padding:24px 8px; border:1.5px dashed var(--line-strong); border-radius:10px; line-height:1.6;}
+.wh-foot{padding:10px 12px; border-top:1px solid var(--line); display:flex; gap:8px; flex:0 0 auto;}
+.wh-foot .btn{flex:1; justify-content:center;}
+
+.wh-item{
+  border-radius:9px; padding:8px 10px 8px 8px; cursor:grab; position:relative;
+  border:1px solid rgba(0,0,0,.08); box-shadow:0 1px 3px rgba(20,30,60,.10);
+  display:flex; flex-direction:column; gap:1px; touch-action:none;
+}
+.wh-item:active{cursor:grabbing;}
+.wh-item .u-name{font-weight:700; font-size:13px; line-height:1.25;}
+.wh-item .u-lect{font-size:12px; opacity:.85;}
+.wh-item .u-dur{font-size:11px; opacity:.75; direction:ltr; text-align:end;}
+
+/* ---------- Main / week ---------- */
+.main{flex:1 1 auto; min-width:0; overflow:auto; padding:0 16px 20px;}
+.week-controls{
+  display:flex; align-items:center; gap:8px; padding:8px 2px; min-height:44px; flex-wrap:wrap;
+}
+#captureArea{background:var(--panel); border:1px solid var(--line-strong); border-radius:12px; padding:14px 16px 18px; min-width:640px;}
+.cap-title{
+  display:flex; align-items:baseline; gap:12px; padding:0 2px 10px; flex-wrap:wrap;
+}
+.cap-title h2{font-size:17px; font-weight:700;}
+.cap-title .dates{color:var(--muted); font-size:13px; direction:ltr;}
+.empty-msg{padding:60px 20px; text-align:center; color:var(--muted); font-size:15px; line-height:1.9;}
+
+/* grid */
+.grid{
+  display:grid;
+  border:1px solid var(--line-strong); border-radius:10px; overflow:hidden;
+  background:var(--panel);
+}
+.g-corner{
+  border-bottom:1px solid var(--line-strong); border-inline-end:1px solid var(--line);
+  background:#f7f9fc; display:flex; align-items:flex-end; justify-content:center;
+  font-size:11px; color:var(--muted); padding:6px 2px;
+}
+.day-head{
+  border-bottom:1px solid var(--line-strong); border-inline-end:1px solid var(--line);
+  background:#f7f9fc; text-align:center; padding:8px 6px 7px;
+  display:flex; flex-direction:column; gap:3px; position:relative;
+}
+.day-head:last-of-type{border-inline-end:0;}
+.day-head .d-name{font-weight:700; font-size:13.5px;}
+.day-head .d-date{font-size:11.5px; color:var(--muted); direction:ltr; min-height:14px;}
+.d-date-input{
+  border:1px solid transparent; background:transparent; border-radius:6px;
+  font-family:inherit; font-size:11px; color:var(--muted); text-align:center;
+  padding:1px 2px; width:100%; outline:none; cursor:pointer;
+}
+.d-date-input:hover{border-color:var(--line-strong); background:#fff; color:var(--txt);}
+.d-date-input:focus{border-color:var(--accent); background:#fff; color:var(--txt);}
+.day-del{
+  position:absolute; top:3px; inset-inline-end:4px; width:17px; height:17px;
+  border:0; border-radius:5px; background:transparent; color:var(--danger);
+  font-size:10px; cursor:pointer; display:none; align-items:center; justify-content:center; padding:0;
+}
+.day-head:hover .day-del{display:flex;}
+.day-del:hover{background:#fdeaea;}
+.day-head .cluster{
+  border:1px solid transparent; background:transparent; border-radius:6px;
+  font-family:inherit; font-size:12px; text-align:center; color:#7a4dcf; font-weight:600;
+  padding:2px 4px; width:100%; outline:none;
+}
+.day-head .cluster::placeholder{color:#b7c0d2; font-weight:400;}
+.day-head .cluster:hover:not([readonly]){border-color:var(--line-strong); background:#fff;}
+.day-head .cluster:focus{border-color:var(--accent); background:#fff;}
+.cluster-print{font-size:12px; text-align:center; color:#7a4dcf; font-weight:600; padding:2px 4px; min-height:18px;}
+.course-name{
+  border:1px solid transparent; background:transparent; border-radius:7px;
+  font-family:inherit; font-size:16px; font-weight:700; color:var(--txt);
+  padding:2px 8px; outline:none; min-width:200px; flex:1 1 200px;
+}
+.course-name::placeholder{color:#b7c0d2; font-weight:400;}
+.course-name:hover{border-color:var(--line-strong); background:#fff;}
+.course-name:focus{border-color:var(--accent); background:#fff;}
+.loc-input{
+  border:1px solid transparent; background:transparent; border-radius:6px;
+  font-family:inherit; font-size:11.5px; text-align:center; color:#0b7285;
+  padding:1px 4px; width:100%; outline:none;
+}
+.loc-input::placeholder{color:#b7c0d2;}
+.loc-input:hover:not([readonly]){border-color:var(--line-strong); background:#fff;}
+.loc-input:focus{border-color:var(--accent); background:#fff;}
+.d-loc{font-size:11.5px; color:#0b7285;}
+
+/* ---------- lecturers page ---------- */
+body.page-lecturers .sidebar, body.page-lecturers .tabsbar, body.page-lecturers .week-controls{display:none !important;}
+.lect-table{width:100%; border-collapse:collapse; background:var(--panel);}
+.lect-table th{
+  background:#f7f9fc; text-align:start; padding:10px 14px; font-size:13px;
+  color:var(--muted); border-bottom:2px solid var(--line-strong); font-weight:600;
+}
+.lect-table td{padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top;}
+.lect-table tr:last-child td{border-bottom:0;}
+.lt-name{font-weight:700; white-space:nowrap; font-size:14px;}
+.lt-name small{font-weight:400; color:var(--muted); direction:ltr; display:block; font-size:11.5px; margin-top:2px;}
+.lt-unit{margin-bottom:7px; font-size:13px; line-height:1.45;}
+.lt-unit:last-child{margin-bottom:0;}
+.lt-unit .lt-when{color:var(--muted); font-size:12.5px;}
+.lt-unit .lt-loc{color:#0b7285; font-size:12.5px;}
+.lect-hint{color:var(--muted); font-size:12.5px; padding:10px 2px 0; line-height:1.6;}
+.lect-mail-input{
+  border:1px solid var(--line-strong); border-radius:7px; padding:5px 8px;
+  font-family:inherit; font-size:12px; width:190px; outline:none; background:#fff;
+}
+.lect-mail-input:focus{border-color:var(--accent);}
+.ext-badge{
+  display:inline-block; background:#fff4e6; color:#b34700; border:1px solid #ffd8a8;
+  border-radius:5px; font-size:10.5px; font-weight:600; padding:1px 6px; margin-inline-start:6px; vertical-align:middle;
+}
+.ext-check{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); margin-top:5px; cursor:pointer;}
+.ext-fields{display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;}
+.ext-fields input{
+  border:1px solid var(--line-strong); border-radius:6px; padding:4px 7px;
+  font-family:inherit; font-size:11.5px; width:90px; outline:none; background:#fff;
+}
+.ext-fields input:focus{border-color:var(--accent);}
+.ext-fields input.wide{width:196px;}
+.ext-check.park{margin-top:0; width:100%;}
+.sd-chk{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--txt); cursor:pointer; background:#fff; border:1px solid var(--line-strong); border-radius:7px; padding:4px 9px;}
+.sd-chk input{width:15px; height:15px; cursor:pointer;}
+
+/* ---------- syllabus page ---------- */
+.syl-table{width:100%; border-collapse:collapse; background:var(--panel); margin-bottom:6px;}
+.syl-table th{
+  background:#f2f5fa; text-align:start; padding:8px 12px; font-size:12.5px; font-weight:600;
+  border:1px solid var(--line-strong); vertical-align:top;
+}
+.syl-table td{border:1px solid var(--line-strong); padding:6px 10px; vertical-align:top; font-size:13px;}
+.syl-table td.b{font-weight:700;}
+.syl-table td.c{text-align:center;}
+.syl-table td.ta-l{text-align:start;}
+.syl-table.grid4 th{text-align:center; font-size:12px;}
+.syl-table th.lvl{font-weight:600; font-size:12.5px; white-space:nowrap;}
+.syl-table textarea, .syl-table input{
+  width:100%; border:1px solid transparent; border-radius:6px; padding:5px 8px;
+  font-family:inherit; font-size:12.5px; outline:none; background:#f7f9fc; resize:vertical; color:var(--txt);
+}
+.syl-table textarea:hover, .syl-table input:hover{border-color:var(--line-strong); background:#fff;}
+.syl-table textarea:focus, .syl-table input:focus{border-color:var(--accent); background:#fff;}
+.syl-auto{color:#1849b8; font-weight:600;}
+.syl-h{font-size:15px; margin:20px 0 7px; padding-bottom:4px; border-bottom:2px solid var(--line-strong);}
+.syl-h small{font-weight:400; font-size:12px; color:var(--muted);}
+.agent-btn{
+  text-decoration:none; background:#f3efff; border-color:#c9b8f5; color:#5f3dc4; font-weight:600;
+}
+.agent-btn:hover{background:#e9e1ff; border-color:#a98ef0;}
+.syl-table textarea.cluster-cell{white-space:pre-wrap; word-break:break-word; line-height:1.35;}
+.syl-table tr.syl-day td{background:#eef2fb; font-weight:700; font-size:13px; padding:7px 12px;}
+.syl-dayc{font-weight:400; font-size:12px; color:#7a4dcf; margin-inline-start:10px;}
+.syl-empty{color:var(--muted); font-size:12.5px; padding:14px; border:1.5px dashed var(--line-strong); border-radius:9px; text-align:center;}
+
+/* ---------- staff page ---------- */
+.staff-day{margin-bottom:22px; border:1px solid var(--line-strong); border-radius:10px; overflow:hidden;}
+.sd-head{display:flex; align-items:center; gap:14px; flex-wrap:wrap; background:#eef2fb; padding:9px 14px; border-bottom:1px solid var(--line-strong);}
+.sd-title{font-weight:700; font-size:14.5px;}
+.sd-f{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);}
+.sd-f input{
+  border:1px solid var(--line-strong); border-radius:6px; padding:4px 8px;
+  font-family:inherit; font-size:12.5px; width:180px; outline:none; background:#fff; color:var(--txt);
+}
+.sd-f input:focus{border-color:var(--accent);}
+.staff-table{width:100%; border-collapse:collapse; background:var(--panel);}
+.staff-table th{background:#f7f9fc; text-align:start; padding:8px 12px; font-size:12.5px; color:var(--muted); border-bottom:1px solid var(--line-strong);}
+.staff-table td{padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; font-size:13px;}
+.staff-table tr:last-child td{border-bottom:0;}
+.staff-table tr.is-break td{background:#f4f6fa; color:var(--muted);}
+.sc-time{direction:ltr; text-align:center; white-space:nowrap; color:var(--muted); font-size:12px;}
+.sc-unit{font-weight:700;}
+.sl-name{font-weight:600;}
+.sl-det{font-size:11.5px; color:var(--muted); line-height:1.5; margin:2px 0 6px;}
+.muted{color:#9aa3b2;}
+.chk-list{display:flex; flex-direction:column; gap:4px;}
+.chk-row{display:flex; align-items:center; gap:6px;}
+.chk-row input[type=checkbox]{flex:0 0 auto; width:15px; height:15px; cursor:pointer;}
+.chk-text{
+  flex:1 1 auto; min-width:0; border:1px solid transparent; border-radius:6px; padding:3px 7px;
+  font-family:inherit; font-size:12.5px; outline:none; background:#f7f9fc;
+}
+.chk-text:hover{border-color:var(--line-strong); background:#fff;}
+.chk-text:focus{border-color:var(--accent); background:#fff;}
+.chk-del{border:0; background:none; color:var(--danger); cursor:pointer; font-size:11px; padding:2px 5px; border-radius:5px; flex:0 0 auto;}
+.chk-del:hover{background:#fdeaea;}
+.chk-add{align-self:flex-start; margin-top:2px;}
+
+/* ---------- stats bar (לא נכלל בייצוא PNG/PDF — נמצא מחוץ לאזור הצילום) ---------- */
+.stats-bar{display:flex; gap:10px; flex-wrap:wrap; padding:0 2px 8px;}
+.stats-bar:empty{display:none;}
+.stat{
+  background:var(--panel); border:1px solid var(--line-strong); border-radius:8px;
+  padding:5px 12px; font-size:12.5px; color:var(--muted);
+}
+.stat b{color:var(--txt); font-size:14px; margin-inline-end:4px;}
+
+.time-col{position:relative; border-inline-end:1px solid var(--line); background:#f7f9fc;}
+.t-lbl{
+  position:absolute; inset-inline:0; text-align:center; font-size:10.5px; color:var(--muted);
+  transform:translateY(-50%); direction:ltr; background:#f7f9fc; line-height:1;
+  padding:1px 0;
+}
+.t-lbl.edge{font-weight:700; color:#4a5570;}
+
+.day-col{
+  position:relative; border-inline-end:1px solid var(--line);
+  background-image:repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--slot-h) - 1px), #f0f3f8 calc(var(--slot-h) - 1px), #f0f3f8 var(--slot-h));
+}
+.day-col:last-of-type{border-inline-end:0;}
+.h-line{position:absolute; inset-inline:0; height:0; border-top:1px solid var(--line); pointer-events:none;}
+.h-line.hour{border-top-color:var(--line-strong);}
+
+/* unit block */
+.unit{
+  position:absolute; inset-inline:3px; border-radius:7px; overflow:hidden;
+  padding:3px 7px 4px; font-size:12px; line-height:1.25; cursor:grab;
+  box-shadow:0 1px 3px rgba(20,30,60,.18); border:1px solid rgba(0,0,0,.10);
+  z-index:5; touch-action:none; display:flex; flex-direction:column;
+}
+.unit:active{cursor:grabbing;}
+.unit .u-name{font-weight:700; font-size:12.5px;}
+.unit .u-lect{font-size:11.5px; opacity:.88;}
+.unit .u-time{font-size:10.5px; opacity:.8; direction:ltr; text-align:start; margin-top:auto;}
+.unit.tiny{flex-direction:row; align-items:center; gap:6px; padding-top:0; padding-bottom:0;}
+.unit.tiny > div{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+.unit.tiny .u-name{font-size:11.5px; flex:0 1 auto;}
+.unit.tiny .u-lect{font-size:11px; flex:0 1 auto;}
+.unit.tiny .u-time{margin-top:0; margin-inline-start:auto; font-size:10px; flex:0 0 auto;}
+.unit.drag-src{opacity:.30;}
+.unit .rz{
+  position:absolute; bottom:0; inset-inline:0; height:8px; cursor:ns-resize;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.unit .rz::after{content:""; width:26px; height:3px; border-radius:2px; background:rgba(0,0,0,.28); margin-bottom:2px; opacity:0; transition:opacity .12s;}
+.unit:hover .rz::after{opacity:1;}
+
+.unit.break, .wh-item.break{
+  background:repeating-linear-gradient(45deg,#e8ebf0 0 8px,#dde1e8 8px 16px) !important;
+  color:#4a5570 !important; border:1px dashed #aab3c4;
+}
+.edit-btn{
+  position:absolute; top:3px; inset-inline-end:4px; width:20px; height:20px; border-radius:6px;
+  border:0; background:rgba(255,255,255,.35); cursor:pointer; font-size:11px; line-height:1;
+  display:none; align-items:center; justify-content:center; z-index:6; padding:0;
+}
+.unit:hover .edit-btn, .wh-item:hover .edit-btn{display:flex;}
+.edit-btn:hover{background:rgba(255,255,255,.75);}
+
+/* drag ghost & placeholder */
+.ghost{
+  position:fixed; z-index:1000; pointer-events:none; opacity:.85;
+  box-shadow:0 8px 24px rgba(20,30,60,.35); transform:rotate(.6deg);
+}
+.ph{
+  position:absolute; inset-inline:3px; border:2px dashed var(--accent); border-radius:7px;
+  background:rgba(53,99,233,.10); z-index:4; pointer-events:none;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; color:var(--accent); font-weight:600; direction:ltr;
+}
+.ph.bad{border-color:var(--danger); background:rgba(214,69,69,.10); color:var(--danger);}
+
+/* ---------- view mode ---------- */
+body.view-mode .rz, body.view-mode .edit-btn, body.view-mode .wh-foot,
+body.view-mode .day-del, body.view-mode .tab-add{display:none !important;}
+body.view-mode .unit, body.view-mode .wh-item{cursor:default;}
+
+/* ---------- modals ---------- */
+.overlay{
+  position:fixed; inset:0; background:rgba(20,28,50,.45); z-index:500;
+  display:flex; align-items:center; justify-content:center; padding:16px;
+}
+.overlay[hidden]{display:none;}
+.modal{
+  background:var(--panel); border-radius:14px; padding:20px 22px; width:400px; max-width:100%;
+  box-shadow:0 20px 60px rgba(10,20,40,.35); max-height:92vh; overflow-y:auto;
+}
+.modal h3{font-size:16px; margin-bottom:14px;}
+.field{margin-bottom:12px;}
+.field label{display:block; font-size:12.5px; color:var(--muted); margin-bottom:4px;}
+.field input[type=text], .field input[type=number], .field input[type=date], .field select{
+  width:100%; border:1px solid var(--line-strong); border-radius:8px; padding:8px 10px;
+  font-family:inherit; font-size:13.5px; outline:none; background:#fff; color:var(--txt);
+}
+.field input:focus, .field select:focus{border-color:var(--accent);}
+.check-row{display:flex; align-items:center; gap:8px; font-size:13.5px; margin-bottom:12px; cursor:pointer;}
+.palette{display:flex; flex-wrap:wrap; gap:7px; align-items:center;}
+.swatch{
+  width:26px; height:26px; border-radius:8px; cursor:pointer; border:2px solid transparent;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);
+}
+.swatch.sel{border-color:var(--txt); transform:scale(1.12);}
+.palette input[type=color]{width:34px; height:30px; border:1px solid var(--line-strong); border-radius:8px; background:#fff; padding:2px; cursor:pointer;}
+.modal-btns{display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;}
+.modal-btns .btn{flex:0 0 auto;}
+.modal-btns .grow{flex:1;}
+
+/* toast */
+#toast{
+  position:fixed; bottom:22px; inset-inline-start:50%; transform:translateX(50%);
+  background:#222b45; color:#fff; padding:10px 20px; border-radius:10px; font-size:13.5px;
+  z-index:900; box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; pointer-events:none;
+  transition:opacity .25s; max-width:90vw;
+}
+#toast.show{opacity:1;}
+
+@media print{
+  .topbar,.tabsbar,.sidebar,.week-controls{display:none !important;}
+  .main{overflow:visible; padding:0;}
+  body{overflow:visible;}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">🗓️ מערכת שעות <small>גרסה לציבור הרחב</small></div>
+  <div class="actions">
+    <div class="nav-group">
+      <button class="btn nav-btn" data-page="board" title="לוח מערכת השעות">🗓️ מערכת שעות</button>
+      <button class="btn nav-btn" data-page="lecturers" title="טבלת כל המרצים ושליחת מיילים">👥 דף מרצים</button>
+      <button class="btn nav-btn" data-page="staff" title="הנחיות תפעול לצוות הקורס">📋 הנחיות לצוות</button>
+      <button class="btn nav-btn" data-page="syllabus" title="הסילבוס המלא של הקורס">📘 סילבוס</button>
+    </div>
+    <button class="btn" id="helpBtn" title="מדריך קצר להכרת המערכת">❓ מדריך</button>
+    <div class="menu-wrap">
+      <button class="btn primary" id="menuBtn">💾 שמירת קורס ▾</button>
+      <div class="menu" id="menu" hidden>
+        <button data-act="saveHtml">💾 שמירת הקורס לקובץ</button>
+        <hr>
+        <button data-act="clearAll">✨ פתיחת קורס חדש</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="tabsbar">
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="wh-head">📦 מחסן יחידות <span class="hint">גררו יחידה אל הלוח לשיבוץ</span></div>
+    <div class="wh-list" id="warehouse"></div>
+    <div class="wh-foot">
+      <button class="btn small primary" id="addUnitBtn">+ יחידת לימוד</button>
+      <button class="btn small" id="addBreakBtn">+ הפסקה</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="stats-bar" id="statsBar"></div>
+    <div class="week-controls" id="weekControls"></div>
+    <div id="captureArea"></div>
+  </main>
+</div>
+
+<!-- unit modal -->
+<div class="overlay" id="unitOverlay" hidden>
+  <div class="modal">
+    <h3 id="unitModalTitle">יחידת לימוד</h3>
+    <div class="field"><label>שם ההרצאה / יחידת הלימוד</label><input type="text" id="uName" maxlength="80"></div>
+    <div class="field"><label>שם המרצה</label><input type="text" id="uLect" maxlength="80"></div>
+    <div class="field"><label>משך (בדקות, כפולות של 15)</label><input type="number" id="uDur" min="15" max="510" step="15" value="60"></div>
+    <label class="check-row"><input type="checkbox" id="uBreak"> הפסקה (עיצוב אפור מיוחד)</label>
+    <div class="field" id="colorField"><label>צבע</label>
+      <div class="palette" id="palette"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn primary grow" id="uSave">שמירה</button>
+      <button class="btn" id="uDup" title="יצירת עותק במחסן">שכפול</button>
+      <button class="btn" id="uToWh">למחסן</button>
+      <button class="btn danger" id="uDel">מחיקה</button>
+      <button class="btn" id="uCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- week modal -->
+<div class="overlay" id="weekOverlay" hidden>
+  <div class="modal">
+    <h3 id="weekModalTitle">שבוע</h3>
+    <div class="field">
+      <label>תאריך יום הפתיחה — כל ימי השבוע יסודרו ברצף מתאריך זה.<br>לשינוי תאריך של יום בודד: לחצו על התאריך בכותרת העמודה בטבלה.</label>
+      <input type="date" id="wDate">
+    </div>
+    <div class="modal-btns">
+      <button class="btn primary grow" id="wSave">שמירה</button>
+      <button class="btn danger" id="wDel">מחיקת שבוע</button>
+      <button class="btn" id="wCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- welcome -->
+<div class="overlay" id="welcomeOverlay" hidden>
+  <div class="modal tour-modal">
+    <div class="tour-badge">ברוכים הבאים</div>
+    <h3>מערכת בניית קורסים 👋</h3>
+    <div class="tour-body">
+      המערכת עוזרת לבנות לוח זמנים לקורס, לנהל מרצים, להפיק הנחיות לצוות ולכתוב סילבוס — הכל במקום אחד, בלי התקנה ובלי הרשמה.
+      <ul>
+        <li>אראה לכם כל כפתור <b>ישירות על המסך</b>, בכל דף שתיכנסו אליו בפעם הראשונה.</li>
+        <li><b>שימו לב:</b> המידע אינו נשמר לבד. בסיום העבודה יש ללחוץ <b>שמירת הקורס לקובץ</b> כדי לשמור אותו במחשב.</li>
+        <li>המדריך זמין תמיד בכפתור <b>❓ מדריך</b> למעלה.</li>
+      </ul>
+    </div>
+    <div class="modal-btns">
+      <button class="btn primary grow" id="wcStart">בוא נתחיל ←</button>
+      <button class="btn" id="wcSkip">דלג על המדריך</button>
+    </div>
+  </div>
+</div>
+
+<!-- coach marks -->
+<div id="cmSpot" hidden></div>
+<div id="cmBubble" hidden>
+  <div class="cm-badge" id="cmBadge"></div>
+  <h4 id="cmTitle"></h4>
+  <div id="cmText"></div>
+  <div class="cm-btns">
+    <button class="btn small primary" id="cmNext">הבא ←</button>
+    <button class="btn small" id="cmPrev">→ הקודם</button>
+    <button class="btn small" id="cmSkip">סיום</button>
+  </div>
+</div>
+
+<!-- new course modal -->
+<div class="overlay" id="newCourseOverlay" hidden>
+  <div class="modal">
+    <h3>✨ פתיחת קורס חדש</h3>
+    <div id="ncStep1">
+      <p class="nc-q">האם שמרת את הקורס הנוכחי?</p>
+      <p class="nc-note">פתיחת קורס חדש תמחק את כל הנתונים הקיימים — השבועות, היחידות, המחסן והמרצים.</p>
+      <div class="modal-btns">
+        <button class="btn primary grow" id="ncYes">כן, שמרתי — פתח קורס חדש</button>
+        <button class="btn" id="ncNo">לא</button>
+        <button class="btn" id="ncCancel">ביטול</button>
+      </div>
+    </div>
+    <div id="ncStep2" hidden>
+      <p class="nc-q">אנא שמרו את הקורס לפני פתיחת קורס חדש:</p>
+      <div class="modal-btns">
+        <button class="btn primary grow" id="ncSave">💾 שמירת הקורס לקובץ</button>
+      </div>
+      <p class="nc-note">ייווצר קובץ אחד שמכיל את הקורס כולו. כדי לחזור אליו בעתיד — פשוט לחצו עליו פעמיים והמערכת תיפתח עם כל הנתונים.</p>
+      <div class="modal-btns">
+        <button class="btn primary grow" id="ncProceed">המשך לפתיחת קורס חדש</button>
+        <button class="btn" id="ncCancel2">ביטול</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+
+<script>
+'use strict';
+/* ===================== constants & state ===================== */
+const SLOT_MIN = 15, SLOTS = 34, SLOT_H = 18, DAY_START = 8.5 * 60; // 08:30 -> 17:00
+const WEEKDAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+const PALETTE = ['#4c6ef5','#12b886','#fa5252','#fd7e14','#7950f2','#e64980','#15aabf','#82c91e','#f59f00','#748ffc','#9aa3b2','#5f3dc4'];
+const LS_KEY = 'scheduleBuilder.v2';
+const MAX_DAYS = 6;
+
+let state = null;
+let suppressClick = false;
+
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+function newState(){
+  return { weeks: [], units: [], activeWeek: null, mode: 'edit', useq: 1, wseq: 1, courseName: '', page: 'board', lecturerInfo: {}, syllabus: {} };
+}
+function saveLS(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){}
+  try{ if(typeof saveCookieBackup === 'function') saveCookieBackup(); }catch(e){}
+}
+function loadLS(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){ state = JSON.parse(raw); return true; }
+  }catch(e){}
+  return false;
+}
+function commit(){ saveLS(); render(); }
+
+/* ===================== helpers ===================== */
+const pad = n => String(n).padStart(2,'0');
+function isoOf(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function parseISO(s){
+  if(typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(s + 'T00:00:00');
+  return isNaN(d) ? null : d;
+}
+function slotTime(s){ const m = DAY_START + s * SLOT_MIN; return pad(Math.floor(m/60)) + ':' + pad(m%60); }
+/* פורמט RTL: "סיום - התחלה" בתוך span עם dir=ltr */
+function rangeLabel(slot, dur){ return slotTime(slot + dur) + ' - ' + slotTime(slot); }
+function fmtDur(dur){ const m = dur * SLOT_MIN; return (m >= 60 ? Math.floor(m/60) + ' ש\'' : '') + (m % 60 ? ' ' + (m%60) + ' דק\'' : (m < 60 ? m + ' דק\'' : '')); }
+function dayName(week, i){
+  const dd = week.days[i];
+  const d = dd ? parseISO(dd.date) : null;
+  return d ? 'יום ' + WEEKDAYS[d.getDay()] : 'יום ' + (i+1);
+}
+function dayDate(week, i){
+  const dd = week.days[i];
+  const d = dd ? parseISO(dd.date) : null;
+  return d ? pad(d.getDate()) + '/' + pad(d.getMonth()+1) : '';
+}
+function weekStart(w){ return (w.days[0] && w.days[0].date) || null; }
+function weekRange(w){
+  const dates = w.days.map((dd, i) => dayDate(w, i)).filter(Boolean);
+  if(!dates.length) return '';
+  return dates.length > 1 ? dates[dates.length-1] + ' - ' + dates[0] : dates[0];
+}
+function textColor(hex){
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if(!m) return '#1c2333';
+  const n = parseInt(m[1],16), r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  return (0.299*r + 0.587*g + 0.114*b) > 150 ? '#1c2333' : '#ffffff';
+}
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function getWeek(id){ return state.weeks.find(w => w.id === id); }
+function getUnit(id){ return state.units.find(u => u.id === id); }
+function unitsOf(weekId, day){ return state.units.filter(u => u.loc && u.loc.weekId === weekId && (day === undefined || u.loc.day === day)); }
+function collides(weekId, day, slot, dur, exceptId){
+  return unitsOf(weekId, day).some(u => u.id !== exceptId && slot < u.loc.slot + u.loc.dur && u.loc.slot < slot + dur);
+}
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove('show'), 3200);
+}
+function nextSundayISO(){
+  const d = new Date(); d.setDate(d.getDate() + (7 - d.getDay()) % 7);
+  return isoOf(d);
+}
+function addWeek(startDate, numDays){
+  const n = Math.min(MAX_DAYS, Math.max(1, numDays || 5));
+  const base = parseISO(startDate);
+  const days = [];
+  for(let i = 0; i < n; i++){
+    let date = null;
+    if(base){ const d = new Date(base); d.setDate(d.getDate() + i); date = isoOf(d); }
+    days.push({ date, cluster: '' });
+  }
+  const w = { id: state.wseq++, days };
+  state.weeks.push(w); state.activeWeek = w.id;
+  return w;
+}
+function newUnit(props){
+  const u = Object.assign({ id: state.useq++, name:'', lecturer:'', color: PALETTE[(state.useq) % PALETTE.length], isBreak:false, dur:4, loc:null, checklist: [], syl:{ outcomes:'', topics:'', methods:'', cluster:'' } }, props);
+  if(!Array.isArray(u.checklist)) u.checklist = [];
+  if(!u.syl) u.syl = { outcomes:'', topics:'', methods:'', cluster:'' };
+  state.units.push(u);
+  return u;
+}
+function suggestNextDate(){
+  const last = state.weeks[state.weeks.length - 1];
+  const base = last ? parseISO(weekStart(last)) : null;
+  if(base){ base.setDate(base.getDate() + 7); return isoOf(base); }
+  return nextSundayISO();
+}
+
+/* ===================== rendering ===================== */
+function render(){
+  document.body.classList.toggle('view-mode', state.mode === 'view');
+  document.body.classList.toggle('page-lecturers', state.page !== 'board');
+  $$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === state.page));
+  renderTabs(); renderWarehouse(); renderWeekControls(); renderStats();
+  if(state.page === 'lecturers') renderLecturers();
+  else if(state.page === 'staff') renderStaff();
+  else if(state.page === 'syllabus') renderSyllabus();
+  else renderGrid();
+  if(typeof maybeAutoTour === 'function') maybeAutoTour();
+}
+
+/* סיכום הקורס — מוצג מעל הלוח, מחוץ לאזור הצילום ולכן לא נכלל ב-PNG/PDF */
+function renderStats(){
+  const units = state.units.filter(u => u.loc && !u.isBreak);
+  /* שעות הקורס — כולל הפסקות */
+  const totalMin = state.units.filter(u => u.loc).reduce((s, u) => s + u.loc.dur, 0) * SLOT_MIN;
+  const hours = Math.floor(totalMin / 60), mins = totalMin % 60;
+  const hoursStr = mins ? hours + ':' + pad(mins) : String(hours);
+  const meetings = new Set(units.map(u => u.loc.weekId + '/' + u.loc.day)).size;
+  const lect = new Set();
+  units.forEach(u => (u.lecturer || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean).forEach(n => lect.add(n)));
+  $('#statsBar').innerHTML = units.length
+    ? '<span class="stat"><b>' + hoursStr + '</b> שעות קורס</span>' +
+      '<span class="stat"><b>' + meetings + '</b> מפגשים</span>' +
+      '<span class="stat"><b>' + lect.size + '</b> מרצים</span>' +
+      '<span class="stat"><b>' + units.length + '</b> יחידות לימוד</span>'
+    : '';
+}
+
+function renderTabs(){
+  const tabs = $('#tabs'); tabs.innerHTML = '';
+  state.weeks.forEach((w, i) => {
+    const b = document.createElement('div');
+    b.className = 'tab' + (w.id === state.activeWeek ? ' active' : '');
+    b.dataset.week = w.id;
+    b.innerHTML = 'שבוע ' + (i+1) + (weekStart(w) ? ' <small>' + esc(dayDate(w,0)) + '</small>' : '');
+    b.title = 'לחיצה כפולה לשינוי תאריכים / מחיקה';
+    tabs.appendChild(b);
+  });
+  if(state.mode !== 'view'){
+    const add = document.createElement('div');
+    add.className = 'tab-add';
+    add.id = 'addWeekTab';
+    add.textContent = '+ הוסף שבוע';
+    add.title = 'הוספת שבוע חדש';
+    tabs.appendChild(add);
+  }
+}
+
+function renderWarehouse(){
+  const list = $('#warehouse'); list.innerHTML = '';
+  const items = state.units.filter(u => !u.loc);
+  if(!items.length){
+    list.innerHTML = '<div class="wh-empty">המחסן ריק.<br>הוסיפו יחידת לימוד בכפתור למטה,<br>או גררו יחידה מהלוח לכאן.</div>';
+    return;
+  }
+  items.forEach(u => {
+    const el = document.createElement('div');
+    el.className = 'wh-item' + (u.isBreak ? ' break' : '');
+    el.dataset.unit = u.id;
+    if(!u.isBreak){ el.style.background = u.color; el.style.color = textColor(u.color); }
+    el.innerHTML =
+      '<div class="u-name">' + esc(u.name || 'ללא שם') + '</div>' +
+      (u.lecturer ? '<div class="u-lect">' + esc(u.lecturer) + '</div>' : '') +
+      '<div class="u-dur">' + fmtDur(u.dur) + '</div>' +
+      '<button class="edit-btn" data-edit="' + u.id + '" title="עריכה">✎</button>';
+    list.appendChild(el);
+  });
+}
+
+function renderWeekControls(){
+  const c = $('#weekControls'); c.innerHTML = '';
+  const w = getWeek(state.activeWeek);
+  if(!w || state.page !== 'board') return;
+  let h = '';
+  if(state.mode === 'edit'){
+    h += '<button class="btn small" id="addDayBtn">➕ הוסף יום</button>' +
+      '<button class="btn small" id="editWeekBtn">🗓️ תאריכים ברצף</button>' +
+      '<button class="btn small danger" id="delWeekBtn">🗑️ מחיקת השבוע</button>' +
+      '<span class="tip">💡 תאריך של כל יום ניתן לשינוי בלחיצה עליו בכותרת העמודה · ✕ בכותרת מסיר יום</span>';
+  }
+  h += '<span class="wc-sep"></span>' +
+    '<button class="btn small" id="expXlsxBtn" title="פריסת כל השבועות לקובץ Excel מעוצב">📤 ייצוא Excel (כל השבועות)</button>' +
+    '<button class="btn small" id="expPdfBtn" title="כל השבועות כ-PDF מוכן להדפסה">🖨️ ייצוא PDF (כל השבועות)</button>' +
+    '<button class="btn small" id="expPngBtn" title="תמונה של השבוע המוצג">🖼️ ייצוא PNG (שבוע נוכחי)</button>';
+  c.innerHTML = h;
+}
+
+function renderGrid(){
+  const wrap = $('#captureArea');
+  const w = getWeek(state.activeWeek);
+  if(!w){
+    wrap.innerHTML = '<div class="empty-msg">אין שבועות עדיין.<br>לחצו על הכפתור הכחול <b>+ הוסף שבוע</b> שבשורת הטאבים למעלה.</div>';
+    return;
+  }
+  const i = state.weeks.indexOf(w);
+  const n = w.days.length;
+  const view = state.mode === 'view';
+  const cn = (state.courseName || '').trim();
+  let html = '<div class="cap-title">' +
+    (view
+      ? (cn ? '<h2>' + esc(cn) + ' —</h2>' : '')
+      : '<input class="course-name" id="courseNameInput" placeholder="שם הקורס (רשות)" maxlength="80" value="' + esc(state.courseName || '') + '">') +
+    '<h2>שבוע ' + (i+1) + '</h2>' +
+    (weekRange(w) ? '<span class="dates">' + esc(weekRange(w)) + '</span>' : '') + '</div>';
+  html += '<div class="grid" style="grid-template-columns:56px repeat(' + n + ',1fr)"><div class="g-corner">שעה</div>';
+  for(let d = 0; d < n; d++){
+    const dd = w.days[d];
+    html += '<div class="day-head">' +
+      (view || n <= 1 ? '' : '<button class="day-del" data-day="' + d + '" title="הסרת היום מהטבלה">✕</button>') +
+      '<div class="d-name">' + esc(dayName(w,d)) + '</div>' +
+      (view
+        ? '<div class="d-date">' + esc(dayDate(w,d)) + '</div>'
+        : '<input type="date" class="d-date-input" data-day="' + d + '" value="' + esc(dd.date || '') + '" title="תאריך היום — לחצו לשינוי">') +
+      '<input class="cluster" data-day="' + d + '" placeholder="שם אשכול (רשות)" maxlength="40" value="' + esc(dd.cluster || '') + '"' + (view ? ' readonly' : '') + '>' +
+      (view
+        ? (dd.location && dd.location.trim() ? '<div class="d-loc">📍 ' + esc(dd.location) + '</div>' : '')
+        : '<input class="loc-input" data-day="' + d + '" placeholder="📍 מיקום (רשות, לזימונים)" maxlength="60" value="' + esc(dd.location || '') + '">') +
+      '</div>';
+  }
+  const bodyH = SLOTS * SLOT_H;
+  /* time column */
+  html += '<div class="time-col" style="height:' + bodyH + 'px">';
+  for(let s = 0; s <= SLOTS; s += 2){
+    const isHour = (DAY_START + s * SLOT_MIN) % 60 === 0;
+    const edge = s === 0 || s === SLOTS;
+    if(isHour || edge){
+      html += '<div class="t-lbl' + (edge ? ' edge' : '') + '" style="top:' + (s * SLOT_H) + 'px">' + slotTime(s) + '</div>';
+    }
+  }
+  html += '</div>';
+  /* day columns */
+  for(let d = 0; d < n; d++){
+    html += '<div class="day-col" data-day="' + d + '" style="height:' + bodyH + 'px">';
+    for(let s = 2; s < SLOTS; s += 2){
+      const isHour = (DAY_START + s * SLOT_MIN) % 60 === 0;
+      html += '<div class="h-line' + (isHour ? ' hour' : '') + '" style="top:' + (s * SLOT_H) + 'px"></div>';
+    }
+    unitsOf(w.id, d).forEach(u => { html += unitHTML(u); });
+    html += '</div>';
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+function unitHTML(u){
+  const { slot, dur } = u.loc;
+  const tiny = dur <= 2;
+  const style = 'top:' + (slot * SLOT_H) + 'px;height:' + (dur * SLOT_H - 2) + 'px;' +
+    (u.isBreak ? '' : 'background:' + u.color + ';color:' + textColor(u.color) + ';');
+  return '<div class="unit' + (u.isBreak ? ' break' : '') + (tiny ? ' tiny' : '') + '" data-unit="' + u.id + '" style="' + style + '">' +
+    '<div class="u-name">' + esc(u.name || 'ללא שם') + '</div>' +
+    (u.lecturer ? '<div class="u-lect">' + esc(u.lecturer) + '</div>' : '') +
+    '<div class="u-time" dir="ltr">' + rangeLabel(slot, dur) + '</div>' +
+    '<button class="edit-btn" data-edit="' + u.id + '" title="עריכה">✎</button>' +
+    '<div class="rz" data-rz="' + u.id + '"></div>' +
+    '</div>';
+}
+
+/* ===================== lecturers page ===================== */
+let lecturersCache = [];
+
+/* פרטי מרצה מתמידים לפי שם */
+function lecturerInfo(name){
+  if(!state.lecturerInfo[name]) state.lecturerInfo[name] = { email:'', external:false, org:'', mobile:'', idNum:'', parking:false, car:'', carType:'', cost:'' };
+  const v = state.lecturerInfo[name];
+  ['email','mobile','idNum','car','org','carType','cost'].forEach(f => { if(typeof v[f] !== 'string') v[f] = ''; });
+  v.external = !!v.external;
+  v.parking = !!v.parking;
+  return v;
+}
+
+function collectLecturers(){
+  const map = new Map();
+  state.units.filter(u => u.loc && !u.isBreak && (u.lecturer || '').trim()).forEach(u => {
+    const w = getWeek(u.loc.weekId);
+    if(!w) return;
+    const dd = w.days[u.loc.day];
+    const names = u.lecturer.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    names.forEach(nm => {
+      if(!map.has(nm)){ const inf = lecturerInfo(nm); map.set(nm, { name: nm, email: (inf.email || '').trim(), info: inf, items: [] }); }
+      map.get(nm).items.push({ u, w, dd });
+    });
+  });
+  const arr = [...map.values()];
+  arr.forEach(r => r.items.sort((a, b) =>
+    (((a.dd && a.dd.date) || '9999').localeCompare((b.dd && b.dd.date) || '9999')) || (a.u.loc.slot - b.u.loc.slot)));
+  arr.sort((a, b) => a.name.localeCompare(b.name, 'he'));
+  return arr;
+}
+
+function unitWhen(it){
+  const t = fmtMin(DAY_START + (it.u.loc.slot + it.u.loc.dur) * SLOT_MIN) + '-' + fmtMin(DAY_START + it.u.loc.slot * SLOT_MIN);
+  const dn = (it.dd && it.dd.date)
+    ? dayName(it.w, it.u.loc.day) + ', ' + it.dd.date.split('-').reverse().join('/') + ', '
+    : 'טרם נקבע תאריך, ';
+  return dn + t;
+}
+
+function renderLecturers(){
+  const wrap = $('#captureArea');
+  lecturersCache = collectLecturers();
+  let html = '<div class="cap-title"><h2>👥 מרצים ושליחת מיילים</h2>' +
+    '<span class="dates">' + lecturersCache.length + ' מרצים</span>' +
+    (lecturersCache.length ? '<button class="btn small" id="lectXlsxBtn">📥 הורדת הרשימה כ-Excel</button>' : '') +
+    '</div>';
+  if(!lecturersCache.length){
+    html += '<div class="empty-msg">אין עדיין הרצאות משובצות עם שם מרצה.<br>שבצו יחידות בלוח והזינו בהן שם מרצה — והן יופיעו כאן.</div>';
+    wrap.innerHTML = html;
+    return;
+  }
+  html += '<table class="lect-table"><thead><tr><th>שם המרצה</th><th>פרטי קשר</th><th>הרצאות ומועדים</th><th></th></tr></thead><tbody>';
+  lecturersCache.forEach((rec, i) => {
+    const inf = rec.info;
+    html += '<tr><td class="lt-name">' + esc(rec.name) +
+      (inf.external ? '<span class="ext-badge">מרצה חיצוני</span>' : '') + '</td>' +
+      '<td>' +
+        '<input class="lect-mail-input" data-idx="' + i + '" dir="ltr" placeholder="name@example.gov.il" value="' + esc(inf.email) + '">' +
+        '<label class="ext-check"><input type="checkbox" class="lect-ext-input" data-idx="' + i + '"' + (inf.external ? ' checked' : '') + '> מרצה חיצוני</label>' +
+        (inf.external
+          ? '<div class="ext-fields">' +
+              '<input class="lect-org-input wide" data-idx="' + i + '" placeholder="חברה / ארגון" value="' + esc(inf.org) + '">' +
+              '<input class="lect-mob-input" data-idx="' + i + '" dir="ltr" placeholder="נייד" value="' + esc(inf.mobile) + '">' +
+              '<label class="ext-check park"><input type="checkbox" class="lect-park-input" data-idx="' + i + '"' + (inf.parking ? ' checked' : '') + '> 🅿️ נדרשת חנייה</label>' +
+              (inf.parking
+                ? '<input class="lect-car-input" data-idx="' + i + '" dir="ltr" placeholder="מס\' רכב" value="' + esc(inf.car) + '">' +
+                  '<input class="lect-ctype-input" data-idx="' + i + '" placeholder="סוג רכב" value="' + esc(inf.carType) + '">'
+                : '') +
+              '<input class="lect-cost-input wide" data-idx="' + i + '" placeholder="התקשרות ועלות (לסילבוס)" value="' + esc(inf.cost) + '">' +
+            '</div>'
+          : '') +
+      '</td><td>';
+    rec.items.forEach(it => {
+      const loc = (it.dd && it.dd.location && it.dd.location.trim())
+        ? ' <span class="lt-loc">📍 ' + esc(it.dd.location) + '</span>' : '';
+      html += '<div class="lt-unit"><b>' + esc(it.u.name || 'ללא שם') + '</b> — <span class="lt-when">' + esc(unitWhen(it)) + '</span>' + loc + '</div>';
+    });
+    html += '</td><td style="white-space:nowrap;">' +
+      '<button class="btn small primary mail-btn" data-idx="' + i + '" title="טיוטת מייל באאוטלוק עם הנוסח המוכן והלו&quot;ז המלא מצורף כ-PDF">📎 שליחת מייל עם לו"ז מצורף</button><br>' +
+      '<button class="btn small mail-plain-btn" data-idx="' + i + '" style="margin-top:6px;" title="טיוטת מייל באאוטלוק ללא צרופה">✉️ שליחת מייל ללא לו"ז מצורף</button><br>' +
+      '<button class="btn small invite-btn" data-idx="' + i + '" style="margin-top:6px;" title="יצירת זימוני יומן לכל ההרצאות של המרצה">📅 שליחת זימונים ליומן</button>' +
+      '</td></tr>';
+  });
+  html += '</tbody></table>' +
+    '<div class="lect-hint">💡 הזינו כתובת בעמודת "מייל המרצה" — היא תשמש בשדה "אל" של המייל. ' +
+    'שני הכפתורים מורידים קובץ מייל — פתיחתו פותחת טיוטה מוכנה באאוטלוק, עם או בלי הלו"ז כ-PDF מצורף. ' +
+    'את הטקסט "קישור לתיקייה ובה המצגת" החליפו בהיפר-קישור אמיתי לפני השליחה.</div>';
+  wrap.innerHTML = html;
+}
+
+/* ---------- זימוני יומן למרצה ---------- */
+function sendLecturerInvites(rec){
+  const items = rec.items.filter(it => it.dd && it.dd.date);
+  if(!items.length){ toast('אין תאריכים להרצאות של המרצה — קבעו תאריכים בלוח תחילה'); return; }
+  const cn = (state.courseName || '').trim();
+  const now = new Date();
+  const stamp = now.getUTCFullYear() + pad(now.getUTCMonth()+1) + pad(now.getUTCDate()) +
+    'T' + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + 'Z';
+  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//ScheduleBuilder//IL','CALSCALE:GREGORIAN','METHOD:REQUEST'];
+  items.forEach((it, i) => {
+    const dt = it.dd.date.replace(/-/g, '');
+    const f = m => dt + 'T' + pad(Math.floor(m/60)) + pad(m%60) + '00';
+    const s = DAY_START + it.u.loc.slot * SLOT_MIN;
+    const e = DAY_START + (it.u.loc.slot + it.u.loc.dur) * SLOT_MIN;
+    const desc = [];
+    if(cn) desc.push('קורס: ' + cn);
+    desc.push('יחידת לימוד: ' + (it.u.name || ''));
+    desc.push('מרצה: ' + rec.name);
+    desc.push('שעות: ' + fmtMin(e) + ' - ' + fmtMin(s));
+    if(it.dd.location) desc.push('מיקום: ' + it.dd.location);
+    lines.push('BEGIN:VEVENT',
+      'UID:sched-' + (it.u.id || 0) + '-' + i + '-' + Date.now() + '@schedule',
+      'DTSTAMP:' + stamp,
+      'DTSTART:' + f(s),
+      'DTEND:' + f(e),
+      'SUMMARY:' + icsEsc((cn ? cn + ' — ' : '') + (it.u.name || 'הרצאה')),
+      'DESCRIPTION:' + icsEsc(desc.join('\n')));
+    if(it.dd.location) lines.push('LOCATION:' + icsEsc(it.dd.location));
+    if(rec.email) lines.push('ATTENDEE;ROLE=REQ-PARTICIPANT;RSVP=TRUE;CN=' + icsEsc(rec.name) + ':mailto:' + rec.email);
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  downloadBlob(new Blob([lines.join('\r\n')], { type:'text/calendar;charset=utf-8' }),
+    'זימונים - ' + rec.name + '.ics');
+  toast(items.length + ' זימונים נוצרו — פתחו את הקובץ והוא ייפתח ביומן לשליחה' +
+    (rec.email ? '' : ' (מומלץ להזין מייל למרצה כדי שהזימון יישלח אליו)'));
+}
+
+/* ---------- נוסח המייל ---------- */
+function mailSubject(){
+  const cn = (state.courseName || '').trim();
+  return 'הזמנה למרצה' + (cn ? ' || ' + cn : '');
+}
+function mailBodyLines(rec){
+  const cn = (state.courseName || '').trim();
+  const L = [];
+  L.push('שלום ' + rec.name + ',');
+  L.push('נשמח מאוד להזמין אותך להרצות' + (cn ? ' בקורס ' + cn : '') + '.');
+  L.push('להלן פרטי המועד והמצגת עבור יחידות הלימוד המתוכננות במסגרת הקורס:');
+  L.push('');
+  rec.items.forEach(it => {
+    let line = '• ' + (it.u.name || 'ללא שם') + ', שתתקיים';
+    if(it.dd && it.dd.date) line += ' ב' + dayName(it.w, it.u.loc.day) + ', ' + it.dd.date.split('-').reverse().join('/') + ',';
+    /* פורמט RTL: שעת ההתחלה מימין, שעת הסיום משמאל */
+    line += ' בשעה ' + fmtMin(DAY_START + (it.u.loc.slot + it.u.loc.dur) * SLOT_MIN) + '-' + fmtMin(DAY_START + it.u.loc.slot * SLOT_MIN);
+    if(it.dd && it.dd.location && it.dd.location.trim()) line += ' ב' + it.dd.location.trim();
+    line += ', קישור לתיקייה ובה המצגת';
+    L.push(line);
+  });
+  L.push('');
+  L.push('בברכה,');
+  L.push('אגף למידה ופיתוח ארגוני');
+  return L;
+}
+/* גוף המייל בעיצוב HTML — כל יחידה כשורה בטבלה (לגרסה עם הצרופה) */
+function mailBodyHtml(rec){
+  const cn = (state.courseName || '').trim();
+  /* פונט Arial בכל תאי הטבלה — חובה inline כי אאוטלוק מאפס פונטים בטבלאות */
+  const td = 'border:1px solid #c8d1e0;padding:7px 12px;text-align:center;font-family:Arial,sans-serif;';
+  const th = 'border:1px solid #2b53c9;padding:8px 12px;background:#3563e9;color:#ffffff;font-weight:bold;font-family:Arial,sans-serif;';
+  let rows = '';
+  rec.items.forEach((it, idx) => {
+    const when = (it.dd && it.dd.date)
+      ? dayName(it.w, it.u.loc.day) + ', ' + it.dd.date.split('-').reverse().join('/')
+      : 'טרם נקבע';
+    const time = fmtMin(DAY_START + (it.u.loc.slot + it.u.loc.dur) * SLOT_MIN) + '-' + fmtMin(DAY_START + it.u.loc.slot * SLOT_MIN);
+    const loc = (it.dd && it.dd.location && it.dd.location.trim()) ? esc(it.dd.location.trim()) : '';
+    rows += '<tr style="background:' + (idx % 2 ? '#f2f5fa' : '#ffffff') + ';">' +
+      '<td style="' + td + 'font-weight:bold;text-align:right;">' + esc(it.u.name || 'ללא שם') + '</td>' +
+      '<td style="' + td + '">' + esc(when) + '</td>' +
+      '<td style="' + td + '" dir="ltr">' + time + '</td>' +
+      '<td style="' + td + '">' + loc + '</td>' +
+      '<td style="' + td + '">קישור לתיקייה ובה המצגת</td>' +
+      '</tr>';
+  });
+  return '<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;color:#1c2333;">' +
+    '<p>שלום ' + esc(rec.name) + ',</p>' +
+    '<p>נשמח מאוד להזמין אותך להרצות' + (cn ? ' בקורס <b>' + esc(cn) + '</b>' : '') + '.<br>' +
+    'להלן פרטי המועד והמצגת עבור יחידות הלימוד המתוכננות במסגרת הקורס:</p>' +
+    '<table dir="rtl" style="border-collapse:collapse;font-size:13.5px;font-family:Arial,sans-serif;">' +
+    '<tr>' +
+    '<th style="' + th + '">יחידת הלימוד</th>' +
+    '<th style="' + th + '">מועד</th>' +
+    '<th style="' + th + '">שעות</th>' +
+    '<th style="' + th + '">מיקום</th>' +
+    '<th style="' + th + '">מצגת</th>' +
+    '</tr>' + rows + '</table>' +
+    '<p>בברכה,<br>אגף למידה ופיתוח ארגוני</p>' +
+    '</div>';
+}
+
+/* ייצוא רשימת המרצים לקובץ Excel */
+async function exportLecturersExcel(){
+  const list = collectLecturers();
+  if(!list.length){ toast('אין מרצים לייצוא'); return; }
+  const rows = [], merges = [];
+  let rowNum = 2;
+  list.forEach(rec => {
+    rec.items.forEach((it, idx) => {
+      rows.push([
+        idx === 0 ? rec.name : '',
+        idx === 0 ? rec.email : '',
+        it.u.name || 'ללא שם',
+        (it.dd && it.dd.date) ? dayName(it.w, it.u.loc.day) + ' ' + it.dd.date.split('-').reverse().join('/') : '',
+        fmtMin(DAY_START + (it.u.loc.slot + it.u.loc.dur) * SLOT_MIN) + '-' + fmtMin(DAY_START + it.u.loc.slot * SLOT_MIN),
+        (it.dd && it.dd.location) || ''
+      ]);
+    });
+    if(rec.items.length > 1) merges.push({ start: rowNum, span: rec.items.length });
+    rowNum += rec.items.length;
+  });
+  if(typeof ExcelJS === 'undefined'){
+    const wb = XLSX.utils.book_new();
+    wb.Workbook = { Views: [{ RTL: true }] };
+    const ws = XLSX.utils.aoa_to_sheet([['שם המרצה','מייל','הרצאה','מועד','שעות','מיקום'], ...rows]);
+    ws['!cols'] = [{wch:20},{wch:26},{wch:28},{wch:22},{wch:12},{wch:18}];
+    XLSX.utils.book_append_sheet(wb, ws, 'מרצים');
+    XLSX.writeFile(wb, 'רשימת-מרצים.xlsx');
+    return;
+  }
+  const wb = new ExcelJS.Workbook();
+  const thin = { style:'thin', color:{ argb:'FFB9C2D0' } };
+  const borderAll = { top:thin, bottom:thin, left:thin, right:thin };
+  const ws = wb.addWorksheet('מרצים', { views:[{ rightToLeft:true, state:'frozen', ySplit:1 }] });
+  ws.columns = [{width:20},{width:26},{width:28},{width:22},{width:13},{width:18}];
+  const hr = ws.addRow(['שם המרצה','מייל','הרצאה','מועד','שעות','מיקום']);
+  hr.eachCell(c => {
+    c.font = { bold:true, size:11, color:{ argb:'FFFFFFFF' } };
+    c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF3563E9' } };
+    c.alignment = { horizontal:'center', vertical:'middle' };
+    c.border = borderAll;
+  });
+  rows.forEach(r => {
+    const xr = ws.addRow(r);
+    xr.eachCell({ includeEmpty: true }, c => {
+      c.border = borderAll;
+      c.alignment = { horizontal:'center', vertical:'middle', wrapText:true };
+    });
+    xr.getCell(1).font = { bold:true };
+  });
+  merges.forEach(m => {
+    ws.mergeCells(m.start, 1, m.start + m.span - 1, 1);
+    ws.mergeCells(m.start, 2, m.start + m.span - 1, 2);
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  downloadBlob(new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'רשימת-מרצים.xlsx');
+  toast('רשימת המרצים ירדה כקובץ Excel');
+}
+
+/* מייל ללא צרופה — באותו מנגנון אמין של קובץ מייל (mailto נכשל בגוף ארוך) */
+function composeMailPlain(rec){
+  downloadEml(rec, null);
+  toast('קובץ המייל ירד — פתחו אותו והוא ייפתח באאוטלוק כטיוטה (ללא צרופה)');
+}
+
+/* בניית קובץ מייל (eml) שנפתח כטיוטה באאוטלוק, עם או בלי צרופת PDF */
+function buildAndDownloadEml(to, subject, bodyHtml, attach, fileLabel){
+  const B = 'PART_BOUNDARY_' + Date.now();
+  const lines = [
+    'X-Unsent: 1',
+    'To: ' + to,
+    'Subject: ' + rfc2047(subject),
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/mixed; boundary="' + B + '"',
+    '',
+    '--' + B,
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    wrap76(b64utf8(bodyHtml))
+  ];
+  if(attach){
+    /* שם קובץ בעברית נתמך דרך קידוד RFC 2047 + RFC 2231 */
+    const ascii = /^[\x20-\x7E]+$/.test(attach.name);
+    const nm = ascii ? '"' + attach.name + '"' : '"' + rfc2047(attach.name) + '"';
+    const fn = ascii
+      ? 'filename="' + attach.name + '"'
+      : 'filename="' + rfc2047(attach.name) + '"; filename*=UTF-8\'\'' + encodeURIComponent(attach.name);
+    lines.push('--' + B,
+      'Content-Type: application/pdf; name=' + nm,
+      'Content-Disposition: attachment; ' + fn,
+      'Content-Transfer-Encoding: base64',
+      '',
+      wrap76(attach.b64));
+  }
+  lines.push('--' + B + '--', '');
+  downloadBlob(new Blob([lines.join('\r\n')], { type:'message/rfc822' }), fileLabel + '.eml');
+}
+function downloadEml(rec, pdfB64){
+  buildAndDownloadEml(
+    rec.email ? rec.email : rfc2047(rec.name),
+    mailSubject(),
+    mailBodyHtml(rec),
+    pdfB64 ? { name: 'schedule.pdf', b64: pdfB64 } : null,
+    'מייל למרצה - ' + rec.name
+  );
+}
+
+/* ---------- מייל עם צרופת PDF (קובץ eml שנפתח כטיוטה באאוטלוק) ---------- */
+function b64utf8(s){
+  const bytes = new TextEncoder().encode(s);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin);
+}
+function wrap76(s){ return s.replace(/(.{76})/g, '$1\r\n'); }
+function rfc2047(s){ return '=?UTF-8?B?' + b64utf8(s) + '?='; }
+
+async function buildSchedulePDF(){
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const orig = state.activeWeek;
+  for(let i = 0; i < state.weeks.length; i++){
+    state.activeWeek = state.weeks[i].id;
+    renderGrid();
+    await new Promise(r => setTimeout(r, 80));
+    const canvas = await captureWeek();
+    const pageW = 297 - 16, pageH = 210 - 16;
+    const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+    const cw = canvas.width * ratio, ch = canvas.height * ratio;
+    if(i > 0) pdf.addPage();
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', (297 - cw) / 2, (210 - ch) / 2, cw, ch);
+  }
+  state.activeWeek = orig;
+  return pdf;
+}
+
+async function composeMailWithPdf(rec){
+  if(!state.weeks.length){ composeMailPlain(rec); return; }
+  toast('מכין את המייל עם הלו"ז המצורף — רגע אחד…');
+  const pdf = await buildSchedulePDF();
+  render();
+  downloadEml(rec, pdf.output('datauristring').split(',')[1]);
+  toast('קובץ המייל ירד — פתחו אותו והוא ייפתח באאוטלוק כטיוטה עם הצרופה');
+}
+
+
+/* ===================== staff instructions page ===================== */
+function staffDays(){
+  const out = [];
+  state.weeks.forEach(w => {
+    w.days.forEach((dd, di) => {
+      const units = unitsOf(w.id, di).slice().sort((a, b) => a.loc.slot - b.loc.slot);
+      if(units.length) out.push({ w, dd, di, units });
+    });
+  });
+  out.sort((a, b) => ((a.dd.date || '9999').localeCompare(b.dd.date || '9999')));
+  return out;
+}
+
+function renderStaff(){
+  const wrap = $('#captureArea');
+  const days = staffDays();
+  const cn = (state.courseName || '').trim();
+  let html = '<div class="cap-title"><h2>📋 הנחיות לצוות</h2>' +
+    (cn ? '<span class="dates">' + esc(cn) + '</span>' : '') +
+    '<span class="dates">' + days.length + ' ימי פעילות</span>' +
+    (days.length ? '<button class="btn small" id="staffPdfBtn">🖨️ PDF</button>' +
+      '<button class="btn small" id="staffDocBtn">📄 Word</button>' +
+      '<button class="btn small" id="staffXlsBtn">📊 Excel</button>' : '') +
+    '</div>';
+  if(!days.length){
+    wrap.innerHTML = html + '<div class="empty-msg">אין עדיין ימים עם יחידות משובצות.<br>שבצו יחידות בלוח והן יופיעו כאן.</div>';
+    return;
+  }
+  days.forEach(d => {
+    const dt = dayDate(d.w, d.di);
+    html += '<div class="staff-day">' +
+      '<div class="sd-head">' +
+        '<div class="sd-title">' + esc(dayName(d.w, d.di)) + (dt ? ' · ' + esc(dt) : '') + '</div>' +
+        '<label class="sd-f">📍 מיקום הקורס ביום זה' +
+          '<input class="sloc-input" data-week="' + d.w.id + '" data-day="' + d.di + '" placeholder="חדר / אולם / קומה" value="' + esc(d.dd.location || '') + '"></label>' +
+        '<label class="sd-f">🪑 אופן סידור הכיתה' +
+          '<input class="setup-input" data-week="' + d.w.id + '" data-day="' + d.di + '" placeholder="ח / שולחנות עגולים / כיתתי" value="' + esc(d.dd.setup || '') + '"></label>' +
+      '</div>';
+    html += '<table class="staff-table"><thead><tr>' +
+      '<th style="width:88px;">שעות</th><th>יחידת הלימוד</th><th style="width:270px;">מרצה</th><th>הנחיות ספציפיות</th>' +
+      '</tr></thead><tbody>';
+    d.units.forEach(u => {
+      const time = fmtMin(DAY_START + (u.loc.slot + u.loc.dur) * SLOT_MIN) + '-' + fmtMin(DAY_START + u.loc.slot * SLOT_MIN);
+      let lect = '';
+      if(u.isBreak) lect = '<span class="muted">—</span>';
+      else {
+        const names = (u.lecturer || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+        lect = names.length ? names.map(nm => {
+          const inf = lecturerInfo(nm);
+          let s = '<div class="sl-name">' + esc(nm) + (inf.external ? '<span class="ext-badge">חיצוני</span>' : '') + '</div>';
+          if(inf.external){
+            const bits = [];
+            if(inf.org) bits.push('🏢 ' + esc(inf.org));
+            if(inf.email) bits.push('✉️ <span dir="ltr">' + esc(inf.email) + '</span>');
+            if(inf.mobile) bits.push('📱 <span dir="ltr">' + esc(inf.mobile) + '</span>');
+            if(inf.parking){
+              const pk = [];
+              if(inf.car) pk.push('<span dir="ltr">' + esc(inf.car) + '</span>');
+              if(inf.carType) pk.push(esc(inf.carType));
+              bits.push('🅿️ נדרשת חנייה' + (pk.length ? ' — ' + pk.join(', ') : ''));
+            }
+            s += '<div class="sl-det">' + (bits.length ? bits.join('<br>') : '<span class="muted">חסרים פרטי מרצה חיצוני</span>') + '</div>';
+          } else if(inf.email) s += '<div class="sl-det">✉️ <span dir="ltr">' + esc(inf.email) + '</span></div>';
+          return s;
+        }).join('') : '<span class="muted">ללא מרצה</span>';
+      }
+      let chk = '<div class="chk-list">';
+      (u.checklist || []).forEach((c, ci) => {
+        chk += '<div class="chk-row">' +
+          '<input type="checkbox" class="chk-done" data-unit="' + u.id + '" data-ci="' + ci + '"' + (c.done ? ' checked' : '') + '>' +
+          '<input class="chk-text" data-unit="' + u.id + '" data-ci="' + ci + '" value="' + esc(c.text || '') + '" placeholder="הנחיה…">' +
+          '<button class="chk-del" data-unit="' + u.id + '" data-ci="' + ci + '" title="מחיקה">✕</button>' +
+          '</div>';
+      });
+      chk += '<button class="btn small chk-add" data-unit="' + u.id + '">+ הנחיה</button></div>';
+      html += '<tr' + (u.isBreak ? ' class="is-break"' : '') + '>' +
+        '<td dir="ltr" class="sc-time">' + time + '</td>' +
+        '<td class="sc-unit">' + esc(u.name || 'ללא שם') + '</td>' +
+        '<td>' + lect + '</td>' +
+        '<td>' + chk + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  });
+  wrap.innerHTML = html;
+}
+
+/* ---- staff exports ---- */
+function staffRows(){
+  const rows = [];
+  staffDays().forEach(d => {
+    const dt = dayDate(d.w, d.di);
+    rows.push({ type:'day',
+      title: dayName(d.w, d.di) + (dt ? ' · ' + dt : ''),
+      location: d.dd.location || '',
+      setup: d.dd.setup || '' });
+    d.units.forEach(u => {
+      const names = (u.lecturer || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+      const lect = u.isBreak ? '—' : (names.length ? names.map(nm => {
+        const inf = lecturerInfo(nm);
+        if(!inf.external) return nm + (inf.email ? ' (' + inf.email + ')' : '');
+        const bits = [];
+        if(inf.org) bits.push(inf.org);
+        if(inf.email) bits.push(inf.email);
+        if(inf.mobile) bits.push('נייד ' + inf.mobile);
+        if(inf.parking) bits.push('נדרשת חנייה' + ((inf.car || inf.carType) ? ': ' + [inf.car, inf.carType].filter(Boolean).join(' ') : ''));
+        return nm + ' (מרצה חיצוני)' + (bits.length ? ' — ' + bits.join(', ') : '');
+      }).join(' | ') : 'ללא מרצה');
+      rows.push({ type:'unit',
+        time: fmtMin(DAY_START + (u.loc.slot + u.loc.dur) * SLOT_MIN) + '-' + fmtMin(DAY_START + u.loc.slot * SLOT_MIN),
+        unit: u.name || 'ללא שם', lect,
+        checklist: (u.checklist || []).map(c => (c.done ? '[V] ' : '[ ] ') + (c.text || '')).join('\n') });
+    });
+  });
+  return rows;
+}
+
+function staffPrintHTML(){
+  const cn = (state.courseName || '').trim();
+  const th = 'border:1px solid #9aa8bf;padding:6px 8px;background:#3563e9;color:#fff;font-weight:bold;font-size:12px;';
+  const td = 'border:1px solid #c8d1e0;padding:6px 8px;font-size:12px;vertical-align:top;';
+  let h = '<div dir="rtl" style="font-family:Arial,sans-serif;color:#1c2333;padding:6px;">' +
+    '<h2 style="font-size:18px;margin:0 0 4px;">הנחיות לצוות' + (cn ? ' — ' + esc(cn) : '') + '</h2>';
+  staffDays().forEach(d => {
+    const dt = dayDate(d.w, d.di);
+    h += '<div style="margin-top:14px;padding:7px 10px;background:#eef2fb;border:1px solid #c8d1e0;border-radius:4px;font-size:13px;">' +
+      '<b>' + esc(dayName(d.w, d.di)) + (dt ? ' · ' + esc(dt) : '') + '</b>' +
+      '&nbsp;&nbsp;|&nbsp;&nbsp;מיקום: ' + (esc(d.dd.location || '') || '_______') +
+      '&nbsp;&nbsp;|&nbsp;&nbsp;סידור הכיתה: ' + (esc(d.dd.setup || '') || '_______') +
+      '</div>';
+    h += '<table dir="rtl" style="border-collapse:collapse;width:100%;margin-top:5px;"><tr>' +
+      '<th style="' + th + 'width:72px;">שעות</th><th style="' + th + '">יחידת הלימוד</th>' +
+      '<th style="' + th + 'width:240px;">מרצה</th><th style="' + th + 'width:230px;">הנחיות</th></tr>';
+    d.units.forEach(u => {
+      const time = fmtMin(DAY_START + (u.loc.slot + u.loc.dur) * SLOT_MIN) + '-' + fmtMin(DAY_START + u.loc.slot * SLOT_MIN);
+      const names = (u.lecturer || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+      let lect = u.isBreak ? '—' : (names.length ? names.map(nm => {
+        const inf = lecturerInfo(nm);
+        let s = '<b>' + esc(nm) + '</b>' +
+          (inf.external ? ' <span style="background:#fff4e6;color:#b34700;border:1px solid #ffd8a8;border-radius:3px;padding:0 4px;font-size:10px;white-space:nowrap;">מרצה חיצוני</span>' : '');
+        const bits = [];
+        if(inf.external && inf.org) bits.push(esc(inf.org));
+        if(inf.email) bits.push('<span dir="ltr">' + esc(inf.email) + '</span>');
+        if(inf.external){
+          if(inf.mobile) bits.push('נייד <span dir="ltr">' + esc(inf.mobile) + '</span>');
+          if(inf.parking){
+            const pk = [];
+            if(inf.car) pk.push('<span dir="ltr">' + esc(inf.car) + '</span>');
+            if(inf.carType) pk.push(esc(inf.carType));
+            bits.push('נדרשת חנייה' + (pk.length ? ': ' + pk.join(', ') : ''));
+          }
+        }
+        if(bits.length) s += '<div style="font-size:11px;color:#4a5570;">' + bits.join('<br>') + '</div>';
+        return s;
+      }).join('<hr style="border:0;border-top:1px dashed #ccd;margin:3px 0;">') : 'ללא מרצה');
+      const items = (u.checklist || []);
+      const chk = items.length
+        ? items.map(c => '<div>' + (c.done ? '☑' : '☐') + ' ' + esc(c.text || '') + '</div>').join('')
+        : '<div style="color:#9aa3b2;">☐ ______________</div>';
+      h += '<tr' + (u.isBreak ? ' style="background:#f1f3f7;"' : '') + '>' +
+        '<td style="' + td + 'text-align:center;" dir="ltr">' + time + '</td>' +
+        '<td style="' + td + 'font-weight:bold;">' + esc(u.name || 'ללא שם') + '</td>' +
+        '<td style="' + td + '">' + lect + '</td>' +
+        '<td style="' + td + '">' + chk + '</td></tr>';
+    });
+    h += '</table>';
+  });
+  return h + '</div>';
+}
+
+async function exportStaffPDF(){
+  const days = staffDays();
+  if(!days.length){ toast('אין נתונים לייצוא'); return; }
+  toast('מכין PDF…');
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-9999px;top:0;width:1050px;background:#fff;';
+  host.innerHTML = staffPrintHTML();
+  document.body.appendChild(host);
+  await new Promise(r => setTimeout(r, 60));
+  const canvas = await html2canvas(host, { scale: 2, backgroundColor: '#ffffff', logging: false });
+  host.remove();
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const pw = 210 - 14, ph = 297 - 14;
+  const imgH = canvas.height * pw / canvas.width;
+  let done = 0, page = 0;
+  const pxPerPage = canvas.width * ph / pw;
+  while(done < canvas.height){
+    const slice = Math.min(pxPerPage, canvas.height - done);
+    const c2 = document.createElement('canvas');
+    c2.width = canvas.width; c2.height = slice;
+    c2.getContext('2d').drawImage(canvas, 0, done, canvas.width, slice, 0, 0, canvas.width, slice);
+    if(page > 0) pdf.addPage();
+    pdf.addImage(c2.toDataURL('image/png'), 'PNG', 7, 7, pw, slice * pw / canvas.width);
+    done += slice; page++;
+  }
+  pdf.save('הנחיות לצוות.pdf');
+}
+
+function exportStaffWord(){
+  const days = staffDays();
+  if(!days.length){ toast('אין נתונים לייצוא'); return; }
+  const doc = '<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">' +
+    '<style>@page{size:A4 portrait;margin:1.2cm;} body{font-family:Arial,sans-serif;}</style></head>' +
+    '<body dir="rtl">' + staffPrintHTML() + '</body></html>';
+  downloadBlob(new Blob(['﻿' + doc], { type:'application/msword' }), 'הנחיות לצוות.doc');
+  toast('קובץ Word ירד');
+}
+
+async function exportStaffExcel(){
+  const rows = staffRows();
+  if(!rows.length){ toast('אין נתונים לייצוא'); return; }
+  const head = ['שעות','יחידת הלימוד','מרצה','הנחיות'];
+  if(typeof ExcelJS === 'undefined'){
+    const aoa = [head];
+    rows.forEach(r => aoa.push(r.type === 'day'
+      ? [r.title, 'מיקום: ' + r.location, 'סידור הכיתה: ' + r.setup, '']
+      : [r.time, r.unit, r.lect, r.checklist]));
+    const wb = XLSX.utils.book_new();
+    wb.Workbook = { Views: [{ RTL: true }] };
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:12},{wch:34},{wch:42},{wch:40}];
+    XLSX.utils.book_append_sheet(wb, ws, 'הנחיות לצוות');
+    XLSX.writeFile(wb, 'הנחיות לצוות.xlsx');
+    return;
+  }
+  const wb = new ExcelJS.Workbook();
+  const thin = { style:'thin', color:{ argb:'FFB9C2D0' } };
+  const bd = { top:thin, bottom:thin, left:thin, right:thin };
+  const ws = wb.addWorksheet('הנחיות לצוות', { views:[{ rightToLeft:true, state:'frozen', ySplit:1 }] });
+  ws.columns = [{width:12},{width:34},{width:44},{width:40}];
+  const hr = ws.addRow(head);
+  hr.eachCell(c => {
+    c.font = { bold:true, color:{ argb:'FFFFFFFF' } };
+    c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF3563E9' } };
+    c.alignment = { horizontal:'center', vertical:'middle' };
+    c.border = bd;
+  });
+  rows.forEach(r => {
+    if(r.type === 'day'){
+      const xr = ws.addRow([r.title, 'מיקום: ' + (r.location || '—'), 'סידור הכיתה: ' + (r.setup || '—'), '']);
+      ws.mergeCells(xr.number, 3, xr.number, 4);
+      xr.eachCell({ includeEmpty:true }, c => {
+        c.font = { bold:true, size:12 };
+        c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFEEF2FB' } };
+        c.alignment = { vertical:'middle', wrapText:true };
+        c.border = bd;
+      });
+    } else {
+      const xr = ws.addRow([r.time, r.unit, r.lect, r.checklist]);
+      xr.eachCell({ includeEmpty:true }, c => {
+        c.alignment = { vertical:'top', wrapText:true };
+        c.border = bd;
+      });
+      xr.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
+      xr.getCell(2).font = { bold:true };
+    }
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  downloadBlob(new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'הנחיות לצוות.xlsx');
+  toast('קובץ Excel ירד');
+}
+
+
+/* ===================== syllabus page ===================== */
+/* נתונים אוטומטיים מתוך המערכת */
+function sylAuto(){
+  const placed = state.units.filter(u => u.loc);
+  const teach = placed.filter(u => !u.isBreak);
+  const totalMin = placed.reduce((s, u) => s + u.loc.dur, 0) * SLOT_MIN;
+  const teachMin = teach.reduce((s, u) => s + u.loc.dur, 0) * SLOT_MIN;
+  const dayKeys = new Set(placed.map(u => u.loc.weekId + '/' + u.loc.day));
+  const dates = [];
+  state.weeks.forEach(w => w.days.forEach((dd, di) => {
+    if(dd.date && dayKeys.has(w.id + '/' + di)) dates.push(dd.date);
+  }));
+  dates.sort();
+  const fmt = s => s.split('-').reverse().join('/');
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return {
+    days: dayKeys.size,
+    hoursStr: m ? h + ':' + pad(m) : String(h),
+    academic: Math.round(teachMin / 45 * 10) / 10,
+    when: dates.length ? (dates.length > 1 ? fmt(dates[0]) + ' - ' + fmt(dates[dates.length-1]) : fmt(dates[0])) : '',
+    units: teach.slice().sort((a, b) => {
+      const wa = state.weeks.findIndex(x => x.id === a.loc.weekId), wb = state.weeks.findIndex(x => x.id === b.loc.weekId);
+      return (wa - wb) || (a.loc.day - b.loc.day) || (a.loc.slot - b.loc.slot);
+    }),
+    groups: sylGroups()
+  };
+}
+/* חלוקת יחידות הלימוד לימים לפי הלו"ז */
+function sylGroups(){
+  const out = [];
+  state.weeks.forEach(w => w.days.forEach((dd, di) => {
+    const units = unitsOf(w.id, di).filter(u => !u.isBreak).sort((a, b) => a.loc.slot - b.loc.slot);
+    if(units.length) out.push({ w, dd, di, units });
+  }));
+  out.sort((a, b) => ((a.dd.date || '9999').localeCompare(b.dd.date || '9999')));
+  return out;
+}
+function externalLecturers(){
+  const names = new Set();
+  state.units.filter(u => u.loc && !u.isBreak).forEach(u =>
+    (u.lecturer || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean).forEach(n => names.add(n)));
+  return [...names].filter(n => lecturerInfo(n).external).sort((a, b) => a.localeCompare(b, 'he'))
+    .map(n => Object.assign({ name: n }, lecturerInfo(n)));
+}
+function todayStr(){ const d = new Date(); return pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear(); }
+
+function renderSyllabus(){
+  const a = sylAuto(), S = state.syllabus, ext = externalLecturers();
+  const ta = (f, ph, rows) => '<textarea class="syl-in" data-f="' + f + '" rows="' + (rows||3) + '" placeholder="' + ph + '">' + esc(S[f] || '') + '</textarea>';
+  const auto = v => '<span class="syl-auto">' + (v ? esc(v) : '—') + '</span>';
+  let h = '<div class="cap-title"><h2>📘 סילבוס</h2>' +
+    '<span class="dates">שדות מסומנים בכחול מוזנים אוטומטית</span>' +
+    '<button class="btn small primary" id="sylDocBtn">📄 ייצוא ל-Word</button>' +
+    '</div>';
+
+  h += '<table class="syl-table">' +
+    '<tr><th style="width:290px;"></th><td class="ta-l">סילבוס מעודכן לתאריך: ' + auto(todayStr()) + '</td></tr>' +
+    '<tr><th>שם הפעילות</th><td>' + auto((state.courseName || '').trim()) + '</td></tr>' +
+    '<tr><th>רקע (הצורך בביצוע הפעילות, הנחות עבודה)</th><td>' + ta('background','רקע והנחות עבודה…') + '</td></tr>' +
+    '<tr><th>קהל יעד</th><td>' + ta('audience','קהל היעד…', 2) + '</td></tr>' +
+    '<tr><th>מטרה (ברמה הארגונית)</th><td>' + ta('goal','המטרה הארגונית…') + '</td></tr>' +
+    '<tr><th>הישגי הלמידה (עם מה הלומדים יצאו בסוף הפעילות)</th><td>' + ta('outcomes','הישגי הלמידה…') + '</td></tr>' +
+    '<tr><th>רציונל (העקרונות הנוגעים למבנה הלוגי ולהתפתחות ההכשרה)</th><td>' + ta('rationale','רציונל…') + '</td></tr>' +
+    '<tr><th>משך הפעילות (מס\' ימים ומס\' שעות לימוד)</th><td>' + auto(a.days ? a.days + ' ימים · ' + a.hoursStr + ' שעות' : '') + '</td></tr>' +
+    '<tr><th>מס\' שעות לציון בתעודה (לפי שעה אקדמית 45 ד\')</th><td>' + auto(a.academic ? a.academic + ' שעות אקדמיות' : '') + '</td></tr>' +
+    '<tr><th>מועד מתוכנן</th><td>' + auto(a.when) + '</td></tr>' +
+    '<tr><th>תנאי סף / דרישות מקדימות מהמשתתפים</th><td>' + ta('prereq','תנאי סף…', 2) + '</td></tr>' +
+    '</table>';
+
+  h += '<h3 class="syl-h">תוכנית הערכת אפקטיביות הלמידה</h3>' +
+    '<table class="syl-table grid4"><tr><th>רמה</th><th>מועד ביצוע הבדיקה</th><th>שיטה</th><th>תכולת הבדיקה / שאלות</th></tr>';
+  ['1 - שביעות רצון','2 - בדיקת ידע','3 - יישום בפועל בסביבת העבודה','4 - תוצאות'].forEach((lbl, i) => {
+    const r = S.evalRows[i] || { when:'', how:'', what:'' };
+    h += '<tr><th class="lvl">' + lbl + '</th>' +
+      '<td><input class="syl-eval" data-r="' + i + '" data-c="when" value="' + esc(r.when) + '" placeholder="לפני הפעילות / במהלכה / בסופה"></td>' +
+      '<td><input class="syl-eval" data-r="' + i + '" data-c="how" value="' + esc(r.how) + '" placeholder="שיחת משוב / שאלון / תצפית"></td>' +
+      '<td><input class="syl-eval" data-r="' + i + '" data-c="what" value="' + esc(r.what) + '"></td></tr>';
+  });
+  h += '</table>';
+
+  h += '<table class="syl-table" style="margin-top:14px;">' +
+    '<tr><th style="width:290px;">מנהל/ת מקצועי/ת</th><td><input class="syl-in" data-f="profManager" value="' + esc(S.profManager) + '"></td></tr>' +
+    '<tr><th>מפתח/ת למידה</th><td><input class="syl-in" data-f="devManager" value="' + esc(S.devManager) + '"></td></tr>' +
+    '<tr><th>אחראי/ת ניהול למידה</th><td><input class="syl-in" data-f="learnManager" value="' + esc(S.learnManager) + '"></td></tr>' +
+    '<tr><th>הערות (אם יש מידע ייעודי שחשוב לפרט)</th><td>' + ta('notes','הערות…', 2) + '</td></tr>' +
+    '</table>';
+
+  h += '<h3 class="syl-h">פרטי מרצים חיצוניים <small>(מוזן אוטומטית מדף המרצים)</small></h3>';
+  if(!ext.length){
+    h += '<div class="syl-empty">אין מרצים חיצוניים. סמנו "מרצה חיצוני" בדף המרצים והפרטים יופיעו כאן.</div>';
+  } else {
+    h += '<table class="syl-table grid4"><tr><th>מרצה</th><th>חברה/ארגון</th><th>נייד</th><th>מייל</th><th>התקשרות ועלות</th></tr>';
+    ext.forEach(x => {
+      h += '<tr><td class="b">' + esc(x.name) + '</td><td>' + auto(x.org) + '</td>' +
+        '<td dir="ltr">' + auto(x.mobile) + '</td><td dir="ltr">' + auto(x.email) + '</td>' +
+        '<td>' + auto(x.cost) + '</td></tr>';
+    });
+    h += '</table>';
+  }
+
+  h += '<h3 class="syl-h">סילבוס <small>(מחולק לימים לפי הלו"ז)</small></h3>';
+  if(!a.groups.length){
+    h += '<div class="syl-empty">אין יחידות לימוד משובצות. שבצו יחידות בלוח והן יופיעו כאן.</div>';
+  } else {
+    h += '<table class="syl-table grid4"><tr>' +
+      '<th style="width:130px;">אשכול</th><th style="width:145px;">שם יחידת הלימוד</th><th style="width:120px;">פרטי המרצה/המנחה</th><th style="width:62px;">משך (בדק\')</th>' +
+      '<th>הישגי הלמידה</th><th>ראשי פרקים</th><th>שיטות הלמידה</th></tr>';
+    a.groups.forEach(g => {
+      const dt = dayDate(g.w, g.di);
+      h += '<tr class="syl-day"><td colspan="7">' + esc(dayName(g.w, g.di)) + (dt ? ' · ' + esc(dt) : '') +
+        (g.dd.cluster ? ' <span class="syl-dayc">אשכול היום: ' + esc(g.dd.cluster) + '</span>' : '') + '</td></tr>';
+      g.units.forEach(u => {
+        const s = u.syl || {};
+        h += '<tr>' +
+          '<td><textarea class="syl-unit cluster-cell" data-unit="' + u.id + '" data-f="cluster" rows="2" placeholder="' + esc(g.dd.cluster || 'שם אשכול (רשות)') + '">' + esc(s.cluster || '') + '</textarea></td>' +
+          '<td class="b">' + auto(u.name || 'ללא שם') + '</td>' +
+          '<td>' + auto(u.lecturer || '') + '</td>' +
+          '<td class="c">' + auto(String(u.loc.dur * SLOT_MIN)) + '</td>' +
+          '<td><textarea class="syl-unit" data-unit="' + u.id + '" data-f="outcomes" rows="3">' + esc(s.outcomes || '') + '</textarea></td>' +
+          '<td><textarea class="syl-unit" data-unit="' + u.id + '" data-f="topics" rows="3">' + esc(s.topics || '') + '</textarea></td>' +
+          '<td><textarea class="syl-unit" data-unit="' + u.id + '" data-f="methods" rows="3">' + esc(s.methods || '') + '</textarea></td></tr>';
+      });
+    });
+    h += '</table>';
+  }
+
+  h += '<h3 class="syl-h">לו"ז עקרוני (מערכת של ימים ושעות)</h3>' +
+    '<div class="syl-empty">לוח הזמנים של כל השבועות ישובץ אוטומטית כתמונה בקובץ ה-Word.</div>';
+  $('#captureArea').innerHTML = h;
+}
+
+/* ---- ייצוא הסילבוס ל-Word (MHTML עם תמונות מוטמעות) ---- */
+function sylDocHTML(imgs){
+  const a = sylAuto(), S = state.syllabus, ext = externalLecturers();
+  const th = 'border:1px solid #8fa0bd;padding:6px 9px;background:#dbe4f5;font-weight:bold;vertical-align:top;direction:rtl;text-align:right;word-wrap:break-word;';
+  const td = 'border:1px solid #8fa0bd;padding:6px 9px;vertical-align:top;direction:rtl;text-align:right;word-wrap:break-word;';
+  const nl = v => esc(v || '').replace(/\n/g, '<br>') || '&nbsp;';
+  /* מספר מבודד — מונע שיבושי כיווניות בוורד */
+  const num = v => '<span dir="ltr" style="unicode-bidi:embed;">' + esc(String(v)) + '</span>';
+  let h = '<div dir="rtl" style="font-family:Arial,sans-serif;font-size:12pt;color:#000;">';
+  h += '<table dir="rtl" style="border-collapse:collapse;width:100%;">' +
+    '<tr><td width="34%" style="' + th + 'width:34%;">&nbsp;</td><td style="' + td + '">סילבוס מעודכן לתאריך: ' + esc(todayStr()) + '</td></tr>' +
+    '<tr><td style="' + th + '">שם הפעילות</td><td style="' + td + '">' + nl((state.courseName||'').trim()) + '</td></tr>' +
+    '<tr><td style="' + th + '">רקע (הצורך בביצוע הפעילות, הנחות עבודה)</td><td style="' + td + '">' + nl(S.background) + '</td></tr>' +
+    '<tr><td style="' + th + '">קהל יעד</td><td style="' + td + '">' + nl(S.audience) + '</td></tr>' +
+    '<tr><td style="' + th + '">מטרה (ברמה הארגונית)</td><td style="' + td + '">' + nl(S.goal) + '</td></tr>' +
+    '<tr><td style="' + th + '">הישגי הלמידה (עם מה הלומדים יצאו בסוף הפעילות)</td><td style="' + td + '">' + nl(S.outcomes) + '</td></tr>' +
+    '<tr><td style="' + th + '">רציונל</td><td style="' + td + '">' + nl(S.rationale) + '</td></tr>' +
+    '<tr><td style="' + th + '">משך הפעילות (מס\' ימים ומס\' שעות לימוד)</td><td style="' + td + '">' +
+      (a.days ? num(a.days) + '&nbsp;ימים, ' + num(a.hoursStr) + '&nbsp;שעות' : '') + '</td></tr>' +
+    '<tr><td style="' + th + '">מס\' שעות לציון בתעודה (לפי שעה אקדמית 45 ד\')</td><td style="' + td + '">' +
+      (a.academic ? num(a.academic) + '&nbsp;שעות אקדמיות' : '') + '</td></tr>' +
+    '<tr><td style="' + th + '">מועד מתוכנן</td><td style="' + td + '">' + esc(a.when) + '</td></tr>' +
+    '<tr><td style="' + th + '">תנאי סף / דרישות מקדימות מהמשתתפים</td><td style="' + td + '">' + nl(S.prereq) + '</td></tr>' +
+    '</table>';
+  h += '<p style="font-weight:bold;margin:14px 0 4px;">תוכנית הערכת אפקטיביות הלמידה</p>' +
+    '<table dir="rtl" style="border-collapse:collapse;width:100%;table-layout:fixed;"><tr>' +
+    '<td width="24%" style="' + th + 'width:24%;">רמה</td><td width="20%" style="' + th + 'width:20%;">מועד ביצוע הבדיקה</td>' +
+    '<td width="24%" style="' + th + 'width:24%;">שיטה</td><td width="32%" style="' + th + 'width:32%;">תכולת הבדיקה/שאלות</td></tr>';
+  [[1,'שביעות רצון'],[2,'בדיקת ידע'],[3,'יישום בפועל בסביבת העבודה'],[4,'תוצאות']].forEach((lv, i) => {
+    const r = S.evalRows[i] || {};
+    const lbl = esc(lv[0] + ' - ' + lv[1]);
+    h += '<tr><td style="' + td + 'font-weight:bold;">' + lbl + '</td><td style="' + td + '">' + nl(r.when) + '</td><td style="' + td + '">' + nl(r.how) + '</td><td style="' + td + '">' + nl(r.what) + '</td></tr>';
+  });
+  h += '</table>';
+  h += '<table dir="rtl" style="border-collapse:collapse;width:100%;margin-top:12px;">' +
+    '<tr><td style="' + th + 'width:34%;">מנהל/ת מקצועי/ת</td><td style="' + td + '">' + nl(S.profManager) + '</td></tr>' +
+    '<tr><td style="' + th + '">מפתח/ת למידה</td><td style="' + td + '">' + nl(S.devManager) + '</td></tr>' +
+    '<tr><td style="' + th + '">אחראי/ת ניהול למידה</td><td style="' + td + '">' + nl(S.learnManager) + '</td></tr>' +
+    '<tr><td style="' + th + '">הערות</td><td style="' + td + '">' + nl(S.notes) + '</td></tr>' +
+    '</table>';
+  h += '<p style="font-weight:bold;margin:16px 0 4px;">פרטי מרצים חיצוניים</p>' +
+    '<table dir="rtl" style="border-collapse:collapse;width:100%;table-layout:fixed;"><tr>' +
+    '<td width="18%" style="' + th + 'width:18%;">מרצה</td><td width="20%" style="' + th + 'width:20%;">חברה/ארגון</td><td width="15%" style="' + th + 'width:15%;">נייד</td>' +
+    '<td width="22%" style="' + th + 'width:22%;">מייל</td><td width="25%" style="' + th + 'width:25%;">התקשרות ועלות</td></tr>';
+  if(ext.length){
+    ext.forEach(x => {
+      h += '<tr><td style="' + td + 'font-weight:bold;">' + esc(x.name) + '</td><td style="' + td + '">' + esc(x.org) + '</td>' +
+        '<td style="' + td + '" dir="ltr">' + esc(x.mobile) + '</td><td style="' + td + '" dir="ltr">' + esc(x.email) + '</td>' +
+        '<td style="' + td + '">' + nl(x.cost) + '</td></tr>';
+    });
+  } else h += '<tr><td style="' + td + '" colspan="5">&nbsp;</td></tr>';
+  h += '</table>';
+  h += '<p style="text-align:center;font-weight:bold;font-size:16pt;margin:22px 0 8px;">סילבוס</p>' +
+    '<table dir="rtl" style="border-collapse:collapse;width:100%;table-layout:fixed;"><tr>' +
+    '<td width="13%" style="' + th + 'width:13%;">אשכול</td><td width="15%" style="' + th + 'width:15%;">שם יחידת הלימוד</td><td width="12%" style="' + th + 'width:12%;">פרטי המרצה/ המנחה</td><td width="7%" style="' + th + 'width:7%;">משך (בדק\')</td>' +
+    '<td width="19%" style="' + th + 'width:19%;">הישגי הלמידה</td><td width="17%" style="' + th + 'width:17%;">ראשי פרקים</td><td width="17%" style="' + th + 'width:17%;">שיטות הלמידה</td></tr>';
+  if(a.groups.length){
+    a.groups.forEach(g => {
+      const dt = dayDate(g.w, g.di);
+      h += '<tr><td style="' + th + 'background:#eef2fb;" colspan="7">' + esc(dayName(g.w, g.di)) + (dt ? ' · ' + esc(dt) : '') +
+        (g.dd.cluster ? ' — אשכול היום: ' + esc(g.dd.cluster) : '') + '</td></tr>';
+      g.units.forEach(u => {
+        const s = u.syl || {};
+        h += '<tr><td style="' + td + '">' + esc(s.cluster || g.dd.cluster || '') + '</td>' +
+          '<td style="' + td + 'font-weight:bold;">' + esc(u.name || '') + '</td>' +
+          '<td style="' + td + '">' + esc(u.lecturer || '') + '</td>' +
+          '<td style="' + td + 'text-align:center;">' + num(u.loc.dur * SLOT_MIN) + '</td>' +
+          '<td style="' + td + '">' + nl(s.outcomes) + '</td><td style="' + td + '">' + nl(s.topics) + '</td><td style="' + td + '">' + nl(s.methods) + '</td></tr>';
+      });
+    });
+  } else h += '<tr><td style="' + td + '" colspan="7">&nbsp;</td></tr>';
+  h += '</table>';
+  h += '<p style="text-align:center;font-weight:bold;font-size:16pt;margin:22px 0 8px;">לו"ז עקרוני (מערכת של ימים ושעות)</p>';
+  imgs.forEach((im, i) => {
+    h += '<p style="text-align:center;' + (i ? 'page-break-before:always;' : '') + '">' +
+      '<img src="' + im.name + '" width="' + im.wpx + '" height="' + im.hpx + '"' +
+      ' style="width:' + im.wcm + 'cm;height:' + im.hcm + 'cm;"></p>';
+  });
+  return h + '</div>';
+}
+
+async function exportSyllabusWord(){
+  toast('מכין את מסמך הסילבוס…');
+  /* צילום כל השבועות ללו"ז */
+  const imgs = [];
+  const origPage = state.page, origWeek = state.activeWeek;
+  state.page = 'board';
+  const MAXW = 17.4, MAXH = 22;   /* ס"מ פנויים בעמוד A4 לאורך */
+  for(let i = 0; i < state.weeks.length; i++){
+    state.activeWeek = state.weeks[i].id;
+    renderGrid();
+    await new Promise(r => setTimeout(r, 70));
+    const canvas = await captureWeek();
+    /* שמירה מדויקת על יחס הגובה-רוחב — התמונה לא נמתחת ולא נחתכת */
+    const ratio = canvas.height / canvas.width;
+    let wcm = MAXW, hcm = wcm * ratio;
+    if(hcm > MAXH){ hcm = MAXH; wcm = hcm / ratio; }
+    imgs.push({
+      name: 'week' + (i+1) + '.png',
+      b64: canvas.toDataURL('image/png').split(',')[1],
+      wcm: Math.round(wcm * 100) / 100,
+      hcm: Math.round(hcm * 100) / 100,
+      wpx: Math.round(wcm * 37.8),
+      hpx: Math.round(hcm * 37.8)
+    });
+  }
+  state.activeWeek = origWeek; state.page = origPage;
+  render();
+
+  const B = '----=_NextPart_Syllabus';
+  const parts = [
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/related; boundary="' + B + '"; type="text/html"',
+    '',
+    '--' + B,
+    'Content-Type: text/html; charset="utf-8"',
+    'Content-Transfer-Encoding: base64',
+    'Content-Location: file:///C:/syllabus/doc.htm',
+    '',
+    wrap76(b64utf8('<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">' +
+      '<style>@page{size:A4 portrait;margin:1.4cm;} body{font-family:Arial,sans-serif;}</style></head>' +
+      '<body dir="rtl">' + sylDocHTML(imgs) + '</body></html>'))
+  ];
+  imgs.forEach(im => {
+    parts.push('--' + B,
+      'Content-Type: image/png',
+      'Content-Transfer-Encoding: base64',
+      'Content-Location: file:///C:/syllabus/' + im.name,
+      '',
+      wrap76(im.b64));
+  });
+  parts.push('--' + B + '--', '');
+  const cn = (state.courseName || 'קורס').trim();
+  downloadBlob(new Blob([parts.join('\r\n')], { type:'application/msword' }), 'סילבוס - ' + cn + '.doc');
+  toast('מסמך הסילבוס ירד');
+}
+
+/* ===================== drag & drop ===================== */
+let drag = null, rz = null;
+
+document.addEventListener('pointerdown', e => {
+  if(state.mode === 'view' || e.button !== 0) return;
+  if(e.target.closest('.edit-btn') || e.target.closest('input') || e.target.closest('.day-del')) return;
+
+  const rzEl = e.target.closest('.rz');
+  if(rzEl){
+    const u = getUnit(+rzEl.dataset.rz);
+    if(!u || !u.loc) return;
+    const el = rzEl.closest('.unit');
+    let maxDur = SLOTS - u.loc.slot;
+    unitsOf(u.loc.weekId, u.loc.day).forEach(o => {
+      if(o.id !== u.id && o.loc.slot >= u.loc.slot + u.loc.dur){
+        maxDur = Math.min(maxDur, o.loc.slot - u.loc.slot);
+      }
+    });
+    rz = { unit: u, el, startY: e.clientY, startDur: u.loc.dur, dur: u.loc.dur, maxDur };
+    e.preventDefault();
+    return;
+  }
+
+  const unitEl = e.target.closest('.unit, .wh-item');
+  if(unitEl){
+    const u = getUnit(+unitEl.dataset.unit);
+    if(!u) return;
+    const r = unitEl.getBoundingClientRect();
+    drag = {
+      unit: u, el: unitEl, started: false,
+      sx: e.clientX, sy: e.clientY,
+      grabX: e.clientX - r.left, grabY: Math.min(e.clientY - r.top, SLOT_H),
+      w: r.width, srcRect: r,
+      dur: u.loc ? u.loc.dur : (u.dur || 4),
+      ghost: null, ph: null, target: null, valid: false,
+      tabTimer: null, hoverTabEl: null
+    };
+    e.preventDefault();
+  }
+});
+
+document.addEventListener('pointermove', e => {
+  if(rz){ onResizeMove(e); return; }
+  if(!drag) return;
+  if(!drag.started){
+    if(Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
+    startDrag();
+  }
+  moveDrag(e);
+});
+
+document.addEventListener('pointerup', e => {
+  if(rz){ endResize(); return; }
+  if(drag){
+    if(drag.started){ endDrag(); }
+    drag = null;
+  }
+});
+
+function startDrag(){
+  drag.started = true;
+  suppressClick = true;
+  const g = drag.el.cloneNode(true);
+  g.classList.add('ghost');
+  g.classList.remove('drag-src');
+  g.style.width = drag.w + 'px';
+  g.style.position = 'fixed';
+  g.style.insetInline = 'auto';
+  if(drag.el.classList.contains('wh-item')){
+    g.style.height = '';
+  } else {
+    g.style.height = (drag.dur * SLOT_H - 2) + 'px';
+  }
+  document.body.appendChild(g);
+  drag.ghost = g;
+  drag.el.classList.add('drag-src');
+}
+
+function moveDrag(e){
+  const g = drag.ghost;
+  g.style.left = (e.clientX - drag.grabX) + 'px';
+  g.style.top  = (e.clientY - drag.grabY) + 'px';
+
+  g.style.display = 'none';
+  const hit = document.elementFromPoint(e.clientX, e.clientY);
+  g.style.display = '';
+
+  clearPh();
+  $('#sidebar').classList.remove('drop-hover');
+  $$('.tab').forEach(t => t.classList.remove('drop-hover'));
+  drag.target = null; drag.valid = false;
+
+  if(!hit) return;
+
+  /* ריחוף מעל טאב של שבוע אחר -> מעבר שבוע תוך כדי גרירה */
+  const tab = hit.closest('.tab');
+  if(tab){
+    const wid = +tab.dataset.week;
+    if(wid !== state.activeWeek){
+      tab.classList.add('drop-hover');
+      if(drag.hoverTabEl !== tab){
+        clearTimeout(drag.tabTimer);
+        drag.hoverTabEl = tab;
+        drag.tabTimer = setTimeout(() => {
+          state.activeWeek = wid;
+          renderTabs(); renderWeekControls(); renderGrid();
+        }, 350);
+      }
+    }
+    return;
+  }
+  clearTimeout(drag.tabTimer); drag.hoverTabEl = null;
+
+  /* מעל המחסן -> החזרה למחסן */
+  if(hit.closest('.sidebar')){
+    if(drag.unit.loc){
+      $('#sidebar').classList.add('drop-hover');
+      drag.target = { type:'wh' }; drag.valid = true;
+    }
+    return;
+  }
+
+  /* מעל עמודת יום */
+  const col = hit.closest('.day-col');
+  if(col){
+    const day = +col.dataset.day;
+    const r = col.getBoundingClientRect();
+    let slot = Math.round((e.clientY - drag.grabY - r.top) / SLOT_H);
+    slot = Math.max(0, Math.min(SLOTS - drag.dur, slot));
+    const ok = !collides(state.activeWeek, day, slot, drag.dur, drag.unit.id);
+    drag.target = { type:'grid', weekId: state.activeWeek, day, slot };
+    drag.valid = ok;
+    const ph = document.createElement('div');
+    ph.className = 'ph' + (ok ? '' : ' bad');
+    ph.style.top = (slot * SLOT_H) + 'px';
+    ph.style.height = (drag.dur * SLOT_H - 2) + 'px';
+    ph.textContent = ok ? rangeLabel(slot, drag.dur) : '✕ תפוס';
+    col.appendChild(ph);
+    drag.ph = ph;
+  }
+}
+
+function clearPh(){ if(drag && drag.ph){ drag.ph.remove(); drag.ph = null; } }
+
+function endDrag(){
+  clearTimeout(drag.tabTimer);
+  clearPh();
+  if(drag.ghost) drag.ghost.remove();
+  drag.el.classList.remove('drag-src');
+  $('#sidebar').classList.remove('drop-hover');
+  $$('.tab').forEach(t => t.classList.remove('drop-hover'));
+
+  const u = drag.unit;
+  if(drag.valid && drag.target){
+    if(drag.target.type === 'wh'){
+      u.dur = u.loc.dur;
+      u.loc = null;
+      toast('היחידה הוחזרה למחסן');
+    } else {
+      u.loc = { weekId: drag.target.weekId, day: drag.target.day, slot: drag.target.slot, dur: drag.dur };
+    }
+    commit();
+  } else {
+    render();
+  }
+  setTimeout(() => { suppressClick = false; }, 50);
+}
+
+/* ===================== resize ===================== */
+function onResizeMove(e){
+  const dSlots = Math.round((e.clientY - rz.startY) / SLOT_H);
+  let nd = Math.max(1, Math.min(rz.maxDur, rz.startDur + dSlots));
+  if(nd !== rz.dur){
+    rz.dur = nd;
+    rz.el.style.height = (nd * SLOT_H - 2) + 'px';
+    rz.el.classList.toggle('tiny', nd <= 2);
+    const t = rz.el.querySelector('.u-time');
+    if(t) t.textContent = rangeLabel(rz.unit.loc.slot, nd);
+  }
+  e.preventDefault();
+}
+function endResize(){
+  if(rz.dur !== rz.startDur){
+    rz.unit.loc.dur = rz.dur;
+    rz.unit.dur = rz.dur;
+    commit();
+  } else {
+    render();
+  }
+  rz = null;
+  suppressClick = true;
+  setTimeout(() => { suppressClick = false; }, 50);
+}
+
+/* ===================== UI events (הכול בהאצלה — עמיד לרינדור מחדש) ===================== */
+document.addEventListener('click', e => {
+  if(suppressClick) return;
+
+  const editBtn = e.target.closest('.edit-btn');
+  if(editBtn){ openUnitModal(+editBtn.dataset.edit); return; }
+
+  const addTab = e.target.closest('.tab-add');
+  if(addTab){ doAddWeek(); return; }
+
+  const mb = e.target.closest('.mail-btn');
+  if(mb){
+    const rec = lecturersCache[+mb.dataset.idx];
+    if(rec) composeMailWithPdf(rec).catch(err => { console.error(err); toast('שגיאה בהכנת המייל: ' + err.message); });
+    return;
+  }
+  const ib = e.target.closest('.invite-btn');
+  if(ib){
+    const rec = lecturersCache[+ib.dataset.idx];
+    if(rec) sendLecturerInvites(rec);
+    return;
+  }
+  const mp = e.target.closest('.mail-plain-btn');
+  if(mp){
+    const rec = lecturersCache[+mp.dataset.idx];
+    if(rec) composeMailPlain(rec);
+    return;
+  }
+  const ca = e.target.closest('.chk-add');
+  if(ca){
+    const u = getUnit(+ca.dataset.unit);
+    if(u){
+      if(!Array.isArray(u.checklist)) u.checklist = [];
+      u.checklist.push({ text:'', done:false }); commit();
+      const inp = document.querySelector('.chk-text[data-unit="' + u.id + '"][data-ci="' + (u.checklist.length-1) + '"]');
+      if(inp) inp.focus();
+    }
+    return;
+  }
+  const cd = e.target.closest('.chk-del');
+  if(cd){
+    const u = getUnit(+cd.dataset.unit);
+    if(u && Array.isArray(u.checklist)){ u.checklist.splice(+cd.dataset.ci, 1); commit(); }
+    return;
+  }
+  if(e.target.closest('#sylDocBtn')){ exportSyllabusWord().catch(err => { console.error(err); toast('שגיאה: ' + err.message); }); return; }
+  if(e.target.closest('#staffPdfBtn')){ exportStaffPDF().catch(err => toast('שגיאה: ' + err.message)); return; }
+  if(e.target.closest('#staffDocBtn')){ exportStaffWord(); return; }
+  if(e.target.closest('#staffXlsBtn')){ exportStaffExcel().catch(err => toast('שגיאה: ' + err.message)); return; }
+  if(e.target.closest('#lectXlsxBtn')){
+    exportLecturersExcel().catch(err => { console.error(err); toast('שגיאה: ' + err.message); });
+    return;
+  }
+
+  const tab = e.target.closest('.tab');
+  if(tab){ state.activeWeek = +tab.dataset.week; commit(); return; }
+
+  const dayDel = e.target.closest('.day-del');
+  if(dayDel){
+    const w = getWeek(state.activeWeek);
+    if(w) removeDay(w, +dayDel.dataset.day);
+    return;
+  }
+
+  if(e.target.closest('#expXlsxBtn')){ exportExcel().catch(err => toast('שגיאה: ' + err.message)); return; }
+  if(e.target.closest('#expPdfBtn')){ exportPDF().catch(err => toast('שגיאה: ' + err.message)); return; }
+  if(e.target.closest('#expPngBtn')){ exportPNG().catch(err => toast('שגיאה: ' + err.message)); return; }
+  if(e.target.closest('#addDayBtn')){ addDay(); return; }
+  if(e.target.closest('#editWeekBtn')){ openWeekModal(state.activeWeek); return; }
+  if(e.target.closest('#delWeekBtn')){
+    const w = getWeek(state.activeWeek);
+    if(w && deleteWeek(w)) commit();
+    return;
+  }
+
+  /* סגירת תפריט קובץ בלחיצה בחוץ */
+  if(!e.target.closest('.menu-wrap')) $('#menu').hidden = true;
+});
+
+document.addEventListener('dblclick', e => {
+  if(state.mode === 'view') return;
+  const tab = e.target.closest('.tab');
+  if(tab){ openWeekModal(+tab.dataset.week); return; }
+  const unitEl = e.target.closest('.unit, .wh-item');
+  if(unitEl && !e.target.closest('input')) openUnitModal(+unitEl.dataset.unit);
+});
+
+/* שם אשכול, מיקום ושם קורס — נשמרים תוך כדי הקלדה */
+document.addEventListener('input', e => {
+  const w = getWeek(state.activeWeek);
+  if(e.target.classList.contains('cluster')){
+    if(w && w.days[+e.target.dataset.day]){
+      w.days[+e.target.dataset.day].cluster = e.target.value;
+      saveLS();
+    }
+  } else if(e.target.classList.contains('loc-input')){
+    if(w && w.days[+e.target.dataset.day]){
+      w.days[+e.target.dataset.day].location = e.target.value;
+      saveLS();
+    }
+  } else if(e.target.id === 'courseNameInput'){
+    state.courseName = e.target.value;
+    saveLS();
+  } else if(e.target.classList.contains('lect-mail-input')){
+    const rec = lecturersCache[+e.target.dataset.idx];
+    if(rec){ rec.email = e.target.value.trim(); lecturerInfo(rec.name).email = rec.email; saveLS(); }
+  } else if(e.target.classList.contains('lect-mob-input')){
+    const rec = lecturersCache[+e.target.dataset.idx];
+    if(rec){ lecturerInfo(rec.name).mobile = e.target.value.trim(); saveLS(); }
+  } else if(e.target.classList.contains('lect-car-input')){
+    const rec = lecturersCache[+e.target.dataset.idx];
+    if(rec){ lecturerInfo(rec.name).car = e.target.value.trim(); saveLS(); }
+  } else if(e.target.classList.contains('lect-org-input')){
+    const rec = lecturersCache[+e.target.dataset.idx];
+    if(rec){ lecturerInfo(rec.name).org = e.target.value.trim(); saveLS(); }
+  } else if(e.target.classList.contains('lect-ctype-input')){
+    const rec = lecturersCache[+e.target.dataset.idx];
+    if(rec){ lecturerInfo(rec.name).carType = e.target.value.trim(); saveLS(); }
+  } else if(e.target.classList.contains('lect-cost-input')){
+    const rec = lecturersCache[+e.target.dataset.idx];
+    if(rec){ lecturerInfo(rec.name).cost = e.target.value.trim(); saveLS(); }
+  } else if(e.target.classList.contains('syl-in')){
+    if(e.target.dataset.f) state.syllabus[e.target.dataset.f] = e.target.value;
+    saveLS();
+  } else if(e.target.classList.contains('syl-eval')){
+    const r = state.syllabus.evalRows[+e.target.dataset.r];
+    if(r){ r[e.target.dataset.c] = e.target.value; saveLS(); }
+  } else if(e.target.classList.contains('syl-unit')){
+    const u = getUnit(+e.target.dataset.unit);
+    if(u && u.syl){ u.syl[e.target.dataset.f] = e.target.value; saveLS(); }
+  } else if(e.target.classList.contains('chk-text')){
+    const u = getUnit(+e.target.dataset.unit);
+    if(u && Array.isArray(u.checklist) && u.checklist[+e.target.dataset.ci]){ u.checklist[+e.target.dataset.ci].text = e.target.value; saveLS(); }
+  } else if(e.target.classList.contains('setup-input')){
+    const w = getWeek(+e.target.dataset.week);
+    if(w && w.days[+e.target.dataset.day]){ w.days[+e.target.dataset.day].setup = e.target.value; saveLS(); }
+  } else if(e.target.classList.contains('sloc-input')){
+    const w = getWeek(+e.target.dataset.week);
+    if(w && w.days[+e.target.dataset.day]){ w.days[+e.target.dataset.day].location = e.target.value; saveLS(); }
+  }
+});
+
+/* צ'קבוקסים ותיבות סימון */
+document.addEventListener('change', e => {
+  if(e.target.classList.contains('lect-ext-input')){
+    const rec = lecturersCache[+e.target.dataset.idx];
+    if(rec){ lecturerInfo(rec.name).external = e.target.checked; commit(); }
+  } else if(e.target.classList.contains('lect-park-input')){
+    const rec = lecturersCache[+e.target.dataset.idx];
+    if(rec){ lecturerInfo(rec.name).parking = e.target.checked; commit(); }
+  } else if(e.target.classList.contains('chk-done')){
+    const u = getUnit(+e.target.dataset.unit);
+    if(u && Array.isArray(u.checklist) && u.checklist[+e.target.dataset.ci]){ u.checklist[+e.target.dataset.ci].done = e.target.checked; saveLS(); }
+  }
+});
+
+/* שינוי תאריך של יום בודד — ישירות בכותרת העמודה */
+document.addEventListener('change', e => {
+  if(e.target.classList.contains('d-date-input')){
+    const w = getWeek(state.activeWeek);
+    if(!w) return;
+    const di = +e.target.dataset.day;
+    if(!w.days[di]) return;
+    const v = e.target.value;
+    w.days[di].date = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+    commit();
+  }
+});
+
+function doAddWeek(){
+  addWeek(suggestNextDate());
+  commit();
+  const tabs = $$('#tabs .tab');
+  const t = tabs[tabs.length - 1];
+  if(t) t.classList.add('flash');
+  toast('נוסף שבוע ' + state.weeks.length + ' והוא נפתח כעת');
+}
+
+function addDay(){
+  const w = getWeek(state.activeWeek);
+  if(!w) return;
+  if(w.days.length >= MAX_DAYS){ toast('אפשר עד ' + MAX_DAYS + ' ימים בשבוע'); return; }
+  let date = null;
+  const lastD = w.days[w.days.length - 1];
+  const d = lastD ? parseISO(lastD.date) : null;
+  if(d){
+    d.setDate(d.getDate() + 1);
+    if(d.getDay() === 6) d.setDate(d.getDate() + 1); /* דילוג על שבת */
+    date = isoOf(d);
+  }
+  w.days.push({ date, cluster: '' });
+  commit();
+}
+
+function removeDay(w, di){
+  if(w.days.length <= 1){ toast('חייב להישאר יום אחד לפחות בטבלה'); return; }
+  const wUnits = state.units.filter(u => u.loc && u.loc.weekId === w.id);
+  const onDay = wUnits.filter(u => u.loc.day === di);
+  if(onDay.length && !confirm('להסיר את היום מהטבלה? ' + onDay.length + ' יחידות משובצות בו יוחזרו למחסן.')) return;
+  onDay.forEach(u => { u.dur = u.loc.dur; u.loc = null; });
+  wUnits.forEach(u => { if(u.loc && u.loc.day > di) u.loc.day--; });
+  w.days.splice(di, 1);
+  commit();
+}
+
+function deleteWeek(w){
+  const n = unitsOf(w.id).length;
+  if(!confirm('למחוק את השבוע?' + (n ? ' ' + n + ' יחידות משובצות יוחזרו למחסן.' : ''))) return false;
+  state.units.forEach(u => { if(u.loc && u.loc.weekId === w.id){ u.dur = u.loc.dur; u.loc = null; } });
+  state.weeks = state.weeks.filter(x => x.id !== w.id);
+  if(state.activeWeek === w.id) state.activeWeek = state.weeks.length ? state.weeks[0].id : null;
+  return true;
+}
+
+/* ניווט קבוע בין הדפים */
+document.addEventListener('click', e => {
+  const nb = e.target.closest('.nav-btn');
+  if(nb && nb.dataset.page !== state.page){ state.page = nb.dataset.page; commit(); }
+});
+$('#menuBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  $('#menu').hidden = !$('#menu').hidden;
+});
+$('#addUnitBtn').addEventListener('click', () => openUnitModal(null, false));
+$('#addBreakBtn').addEventListener('click', () => openUnitModal(null, true));
+document.addEventListener('keydown', e => { if(e.key === 'Escape'){ $('#unitOverlay').hidden = true; $('#weekOverlay').hidden = true; $('#newCourseOverlay').hidden = true; } });
+
+function startNewCourse(){
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  state = newState();
+  addWeek(nextSundayISO());
+  saveLS(); render();
+  toast('נפתח קורס חדש');
+}
+function openNewCourseModal(){
+  $('#ncStep1').hidden = false;
+  $('#ncStep2').hidden = true;
+  $('#newCourseOverlay').hidden = false;
+}
+$('#ncYes').addEventListener('click', () => { $('#newCourseOverlay').hidden = true; startNewCourse(); });
+$('#ncNo').addEventListener('click', () => { $('#ncStep1').hidden = true; $('#ncStep2').hidden = false; });
+$('#ncSave').addEventListener('click', () => { try{ saveStandaloneHTML(); }catch(err){ toast('שגיאה: ' + err.message); } });
+$('#ncProceed').addEventListener('click', () => { $('#newCourseOverlay').hidden = true; startNewCourse(); });
+$('#ncCancel').addEventListener('click', () => { $('#newCourseOverlay').hidden = true; });
+$('#ncCancel2').addEventListener('click', () => { $('#newCourseOverlay').hidden = true; });
+
+/* ===================== unit modal ===================== */
+let modalUnit = null, modalIsNew = false, modalColor = PALETTE[0];
+
+function buildPalette(){
+  const p = $('#palette'); p.innerHTML = '';
+  PALETTE.forEach(c => {
+    const s = document.createElement('div');
+    s.className = 'swatch' + (c === modalColor ? ' sel' : '');
+    s.style.background = c;
+    s.addEventListener('click', () => { modalColor = c; buildPalette(); });
+    p.appendChild(s);
+  });
+  const inp = document.createElement('input');
+  inp.type = 'color'; inp.value = /^#[0-9a-f]{6}$/i.test(modalColor) ? modalColor : '#4c6ef5';
+  inp.title = 'צבע מותאם אישית';
+  inp.addEventListener('input', () => { modalColor = inp.value; $$('.swatch').forEach(s => s.classList.remove('sel')); });
+  p.appendChild(inp);
+}
+
+function openUnitModal(unitId, isBreakDefault){
+  modalUnit = unitId != null ? getUnit(unitId) : null;
+  modalIsNew = !modalUnit;
+  $('#unitModalTitle').textContent = modalIsNew ? 'יחידת לימוד חדשה' : 'עריכת יחידת לימוד';
+  $('#uName').value = modalUnit ? modalUnit.name : (isBreakDefault ? 'הפסקה' : '');
+  $('#uLect').value = modalUnit ? modalUnit.lecturer : '';
+  $('#uDur').value = (modalUnit ? (modalUnit.loc ? modalUnit.loc.dur : modalUnit.dur) : (isBreakDefault ? 1 : 4)) * SLOT_MIN;
+  $('#uBreak').checked = modalUnit ? modalUnit.isBreak : !!isBreakDefault;
+  modalColor = modalUnit ? modalUnit.color : PALETTE[state.useq % PALETTE.length];
+  buildPalette();
+  $('#uDup').style.display = modalIsNew ? 'none' : '';
+  $('#uDel').style.display = modalIsNew ? 'none' : '';
+  $('#uToWh').style.display = (modalUnit && modalUnit.loc) ? '' : 'none';
+  $('#unitOverlay').hidden = false;
+  $('#uName').focus();
+}
+
+function readUnitForm(){
+  const dur = Math.max(1, Math.min(SLOTS, Math.round((+$('#uDur').value || 60) / SLOT_MIN)));
+  return {
+    name: $('#uName').value.trim(),
+    lecturer: $('#uLect').value.trim(),
+    isBreak: $('#uBreak').checked,
+    color: modalColor,
+    dur
+  };
+}
+
+$('#uSave').addEventListener('click', () => {
+  const f = readUnitForm();
+  if(!f.name){ toast('נא להזין שם קורס'); return; }
+  if(modalIsNew){
+    newUnit({ name:f.name, lecturer:f.lecturer, isBreak:f.isBreak, color:f.color, dur:f.dur });
+  } else {
+    Object.assign(modalUnit, { name:f.name, lecturer:f.lecturer, isBreak:f.isBreak, color:f.color });
+    if(modalUnit.loc){
+      if(f.dur !== modalUnit.loc.dur){
+        if(modalUnit.loc.slot + f.dur <= SLOTS && !collides(modalUnit.loc.weekId, modalUnit.loc.day, modalUnit.loc.slot, f.dur, modalUnit.id)){
+          modalUnit.loc.dur = f.dur;
+        } else toast('שינוי המשך נחסם — התנגשות עם יחידה אחרת');
+      }
+      modalUnit.dur = modalUnit.loc.dur;
+    } else {
+      modalUnit.dur = f.dur;
+    }
+  }
+  $('#unitOverlay').hidden = true;
+  commit();
+});
+$('#uDup').addEventListener('click', () => {
+  if(!modalUnit) return;
+  const f = readUnitForm();
+  newUnit({ name:f.name, lecturer:f.lecturer, isBreak:f.isBreak, color:f.color, dur:f.dur, loc:null });
+  $('#unitOverlay').hidden = true;
+  commit(); toast('נוצר עותק במחסן');
+});
+
+/* ---------- זימוני Outlook ---------- */
+function inviteFromModal(){
+  /* לוקח את הערכים העדכניים מהטופס, גם אם עוד לא נשמרו */
+  return Object.assign({}, modalUnit, readUnitForm(), { loc: modalUnit.loc });
+}
+function inviteData(u){
+  if(!u.loc) return null;
+  const w = getWeek(u.loc.weekId);
+  if(!w) return null;
+  const dd = w.days[u.loc.day];
+  if(!dd || !dd.date) return null;
+  return {
+    date: dd.date,
+    s: DAY_START + u.loc.slot * SLOT_MIN,
+    e: DAY_START + (u.loc.slot + u.loc.dur) * SLOT_MIN,
+    location: (dd.location || '').trim()
+  };
+}
+function fmtMin(m){ return pad(Math.floor(m/60)) + ':' + pad(m%60); }
+/* שדה "אל": מיילים אם הוזנו; אחרת שמות המרצים. מפריד ; בין מרצים מרובים */
+function inviteTo(u){
+  const src = (u.email && u.email.trim()) ? u.email : (u.lecturer || '');
+  return src.split(/[,;]+/).map(s => s.trim()).filter(Boolean).join(';');
+}
+function inviteSubject(u){
+  const parts = ['הזמנה למרצה', (u.name || 'הרצאה').trim()];
+  const cn = (state.courseName || '').trim();
+  if(cn) parts.push(cn);
+  return parts.join(' || ');
+}
+function inviteBody(u, d){
+  const L = [];
+  const cn = (state.courseName || '').trim();
+  if(cn) L.push('קורס: ' + cn);
+  L.push('הרצאה: ' + (u.name || ''));
+  if(u.lecturer) L.push('מרצה: ' + u.lecturer);
+  L.push('תאריך: ' + d.date.split('-').reverse().join('/'));
+  L.push('שעות: ' + fmtMin(d.e) + ' - ' + fmtMin(d.s));
+  if(d.location) L.push('מיקום: ' + d.location);
+  return L.join('\n');
+}
+function sendInvite(u){
+  const d = inviteData(u);
+  if(!d){ toast('כדי לשלוח זימון, על היחידה להיות משובצת ביום עם תאריך'); return; }
+  const p = new URLSearchParams();
+  p.set('subject', inviteSubject(u));
+  p.set('startdt', d.date + 'T' + fmtMin(d.s) + ':00');
+  p.set('enddt', d.date + 'T' + fmtMin(d.e) + ':00');
+  if(d.location) p.set('location', d.location);
+  p.set('body', inviteBody(u, d));
+  const to = inviteTo(u);
+  if(to) p.set('to', to);
+  window.open('https://outlook.office.com/calendar/deeplink/compose?' + p.toString(), '_blank');
+  toast('נפתח זימון ב-Outlook. אם החלון לא נפתח — השתמשו ב"קובץ זימון"');
+}
+function icsEsc(s){ return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
+function downloadICS(u){
+  const d = inviteData(u);
+  if(!d){ toast('כדי ליצור זימון, על היחידה להיות משובצת ביום עם תאריך'); return; }
+  const dt = d.date.replace(/-/g,'');
+  const f = m => dt + 'T' + pad(Math.floor(m/60)) + pad(m%60) + '00';
+  const now = new Date();
+  const stamp = now.getUTCFullYear() + pad(now.getUTCMonth()+1) + pad(now.getUTCDate()) +
+    'T' + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + 'Z';
+  const lines = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//ScheduleBuilder//IL','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    'UID:sched-' + (u.id || 0) + '-' + Date.now() + '@local',
+    'DTSTAMP:' + stamp,
+    'DTSTART:' + f(d.s),
+    'DTEND:' + f(d.e),
+    'SUMMARY:' + icsEsc(inviteSubject(u)),
+    'DESCRIPTION:' + icsEsc(inviteBody(u, d))
+  ];
+  if(d.location) lines.push('LOCATION:' + icsEsc(d.location));
+  const mails = (u.email || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+  const names = (u.lecturer || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+  mails.forEach((m2, i2) => {
+    lines.push('ATTENDEE;ROLE=REQ-PARTICIPANT;RSVP=TRUE;CN=' + icsEsc(names[i2] || m2) + ':mailto:' + m2);
+  });
+  lines.push('END:VEVENT','END:VCALENDAR');
+  downloadBlob(new Blob([lines.join('\r\n')], { type:'text/calendar;charset=utf-8' }), 'זימון - ' + (u.name || 'הרצאה') + '.ics');
+  toast('קובץ הזימון ירד — פתחו אותו והוא ייפתח באאוטלוק');
+}
+/* זימוני Outlook הוסרו — שליחת מיילים מתבצעת מדף המרצים */
+$('#uToWh').addEventListener('click', () => {
+  if(modalUnit && modalUnit.loc){ modalUnit.dur = modalUnit.loc.dur; modalUnit.loc = null; }
+  $('#unitOverlay').hidden = true;
+  commit(); toast('היחידה הוחזרה למחסן');
+});
+$('#uDel').addEventListener('click', () => {
+  if(modalUnit && confirm('למחוק את "' + (modalUnit.name || 'היחידה') + '" לצמיתות?')){
+    state.units = state.units.filter(u => u.id !== modalUnit.id);
+    $('#unitOverlay').hidden = true;
+    commit();
+  }
+});
+$('#uCancel').addEventListener('click', () => { $('#unitOverlay').hidden = true; });
+
+/* ===================== week modal (תאריכים ברצף) ===================== */
+let modalWeek = null;
+function openWeekModal(weekId){
+  modalWeek = weekId != null ? getWeek(weekId) : null;
+  $('#weekModalTitle').textContent = modalWeek ? 'שבוע ' + (state.weeks.indexOf(modalWeek)+1) + ' — תאריכים ברצף' : 'שבוע חדש';
+  $('#wDate').value = modalWeek ? (weekStart(modalWeek) || '') : suggestNextDate();
+  $('#wDel').style.display = modalWeek ? '' : 'none';
+  $('#weekOverlay').hidden = false;
+}
+$('#wSave').addEventListener('click', () => {
+  let v = ($('#wDate').value || '').trim();
+  /* קבלת תאריך שהוקלד ידנית בפורמט dd/mm/yyyy */
+  const m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(v);
+  if(m) v = m[3] + '-' + pad(+m[2]) + '-' + pad(+m[1]);
+  if(v && !/^\d{4}-\d{2}-\d{2}$/.test(v)){ toast('תאריך לא תקין — נא לבחור מהלוח או להשאיר ריק'); return; }
+  if(modalWeek){
+    const base = parseISO(v);
+    modalWeek.days.forEach((dd, i) => {
+      if(base){ const d = new Date(base); d.setDate(d.getDate() + i); dd.date = isoOf(d); }
+      else dd.date = null;
+    });
+  } else {
+    addWeek(v || null);
+  }
+  $('#weekOverlay').hidden = true;
+  commit();
+});
+$('#wDel').addEventListener('click', () => {
+  if(modalWeek && deleteWeek(modalWeek)){
+    $('#weekOverlay').hidden = true;
+    commit();
+  }
+});
+$('#wCancel').addEventListener('click', () => { $('#weekOverlay').hidden = true; });
+
+/* ===================== file menu actions ===================== */
+$('#menu').addEventListener('click', async e => {
+  const b = e.target.closest('button');
+  if(!b) return;
+  $('#menu').hidden = true;
+  const act = b.dataset.act;
+  try{
+    if(act === 'saveHtml') saveStandaloneHTML();
+    else if(act === 'clearAll') openNewCourseModal();
+  }catch(err){ console.error(err); toast('שגיאה: ' + err.message); }
+});
+
+/* ---------- Excel export (מעוצב: צבעים + ירידות שורה) ---------- */
+async function exportExcel(){
+  if(!state.weeks.length){ toast('אין שבועות לייצוא'); return; }
+  if(typeof ExcelJS === 'undefined'){ exportExcelBasic(); return; } /* גיבוי אם הספרייה חסומה ברשת */
+  const wb = new ExcelJS.Workbook();
+  const thin = { style:'thin', color:{ argb:'FFB9C2D0' } };
+  const borderAll = { top:thin, bottom:thin, left:thin, right:thin };
+  state.weeks.forEach((w, i) => {
+    const n = w.days.length;
+    const hasClusters = w.days.some(dd => dd.cluster && dd.cluster.trim());
+    const headRows = hasClusters ? 2 : 1;
+    const ws = wb.addWorksheet('שבוע ' + (i+1), { views:[{ rightToLeft:true, state:'frozen', xSplit:1, ySplit:headRows }] });
+    ws.columns = [{width:9}, ...Array(n).fill({width:26})];
+    const head = ['שעה'];
+    for(let d = 0; d < n; d++){
+      const dt = dayDate(w,d);
+      head.push(dayName(w,d) + (dt ? '\n' + dt : ''));
+    }
+    const hr = ws.addRow(head);
+    hr.height = 30;
+    hr.eachCell(c => {
+      c.font = { bold:true, size:11 };
+      c.alignment = { horizontal:'center', vertical:'middle', wrapText:true };
+      c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF2F5FA' } };
+      c.border = borderAll;
+    });
+    if(hasClusters){
+      const cr = ws.addRow(['אשכול', ...w.days.map(dd => dd.cluster || '')]);
+      cr.eachCell(c => {
+        c.font = { bold:true, size:10, color:{ argb:'FF7A4DCF' } };
+        c.alignment = { horizontal:'center', vertical:'middle' };
+        c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF7F4FD' } };
+        c.border = borderAll;
+      });
+    }
+    for(let s = 0; s < SLOTS; s++){
+      const r = ws.addRow([slotTime(s), ...Array(n).fill('')]);
+      r.getCell(1).font = { size:9, color:{ argb:'FF6B7690' } };
+      r.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
+      for(let c = 1; c <= 1 + n; c++) r.getCell(c).border = borderAll;
+    }
+    unitsOf(w.id).forEach(u => {
+      const { day, slot, dur } = u.loc;
+      if(day >= n) return;
+      const r1 = headRows + 1 + slot, c1 = 2 + day;
+      if(dur > 1) ws.mergeCells(r1, c1, r1 + dur - 1, c1);
+      const cell = ws.getCell(r1, c1);
+      const bg = u.isBreak ? '#dde1e8' : (u.color || '#4c6ef5');
+      const fgHex = u.isBreak ? '#1c2333' : textColor(u.color);
+      const argbBg = 'FF' + bg.slice(1).toUpperCase();
+      const argbFg = fgHex === '#ffffff' ? 'FFFFFFFF' : 'FF1C2333';
+      const parts = [{ text: u.name || 'ללא שם', font:{ bold:true, size:11, color:{ argb:argbFg } } }];
+      if(u.lecturer) parts.push({ text:'\n' + u.lecturer, font:{ size:10, color:{ argb:argbFg } } });
+      parts.push({ text:'\n' + slotTime(slot) + ' - ' + slotTime(slot + dur), font:{ size:9, color:{ argb:argbFg } } });
+      cell.value = { richText: parts };
+      cell.alignment = { horizontal:'center', vertical:'middle', wrapText:true };
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:argbBg } };
+      cell.border = borderAll;
+    });
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  downloadBlob(new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'מערכת-שעות.xlsx');
+  toast('קובץ האקסל נוצר');
+}
+
+/* גיבוי בסיסי ללא עיצוב */
+function exportExcelBasic(){
+  const wb = XLSX.utils.book_new();
+  wb.Workbook = { Views: [{ RTL: true }] };
+  state.weeks.forEach((w, i) => {
+    const n = w.days.length;
+    const aoa = [];
+    const head = ['שעה'], clus = ['אשכול'];
+    for(let d = 0; d < n; d++){
+      head.push(dayName(w,d) + (dayDate(w,d) ? ' ' + dayDate(w,d) : ''));
+      clus.push(w.days[d].cluster || '');
+    }
+    aoa.push(head, clus);
+    for(let s = 0; s < SLOTS; s++){
+      aoa.push([slotTime(s), ...Array(n).fill('')]);
+    }
+    const merges = [];
+    unitsOf(w.id).forEach(u => {
+      const { day, slot, dur } = u.loc;
+      if(day >= n) return;
+      aoa[2 + slot][1 + day] = u.name + (u.lecturer ? ' | ' + u.lecturer : '') + ' (' + slotTime(slot) + '-' + slotTime(slot + dur) + ')';
+      if(dur > 1) merges.push({ s:{ r:2+slot, c:1+day }, e:{ r:2+slot+dur-1, c:1+day } });
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols'] = [{wch:7}, ...Array(n).fill({wch:34})];
+    XLSX.utils.book_append_sheet(wb, ws, 'שבוע ' + (i+1));
+  });
+  XLSX.writeFile(wb, 'מערכת-שעות.xlsx');
+}
+
+/* ---------- PNG / PDF export ---------- */
+function downloadBlob(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => { try{ URL.revokeObjectURL(a.href); }catch(e){} }, 4000);
+}
+/* תבנית פסים כתמונה — html2canvas לא תומך ב-repeating-linear-gradient */
+let _breakPat = null;
+function breakPatternURI(){
+  if(_breakPat) return _breakPat;
+  const c = document.createElement('canvas');
+  c.width = 16; c.height = 16;
+  const x = c.getContext('2d');
+  x.fillStyle = '#e9ecf1'; x.fillRect(0, 0, 16, 16);
+  x.strokeStyle = '#d5dae4'; x.lineWidth = 5.7; x.lineCap = 'butt';
+  x.beginPath();
+  x.moveTo(-4, 4);  x.lineTo(4, -4);
+  x.moveTo(0, 16);  x.lineTo(16, 0);
+  x.moveTo(12, 20); x.lineTo(20, 12);
+  x.stroke();
+  _breakPat = c.toDataURL('image/png');
+  return _breakPat;
+}
+async function captureWeek(){
+  return await html2canvas($('#captureArea'), {
+    scale: 2, backgroundColor: '#ffffff', logging: false,
+    /* בייצוא: שדות קלט הופכים לטקסט נקי; שדות ריקים לא מופיעים כלל */
+    onclone: doc => {
+      /* הפסקות: החלפת רקע הפסים בתמונת תבנית שנתמכת בצילום */
+      const pat = breakPatternURI();
+      doc.querySelectorAll('.unit.break').forEach(el => {
+        el.style.setProperty('background-color', '#e9ecf1', 'important');
+        el.style.setProperty('background-image', 'url(' + pat + ')', 'important');
+        el.style.setProperty('background-repeat', 'repeat', 'important');
+      });
+      doc.querySelectorAll('.cluster').forEach(inp => {
+        if(inp.value && inp.value.trim()){
+          const d = doc.createElement('div');
+          d.className = 'cluster-print';
+          d.textContent = inp.value.trim();
+          inp.replaceWith(d);
+        } else {
+          inp.remove();
+        }
+      });
+      doc.querySelectorAll('.d-date-input').forEach(inp => {
+        const d = doc.createElement('div');
+        d.className = 'd-date';
+        if(inp.value){
+          const p = inp.value.split('-');
+          d.textContent = p[2] + '/' + p[1];
+        }
+        inp.replaceWith(d);
+      });
+      doc.querySelectorAll('.day-del').forEach(b => b.remove());
+      /* מיקום — לעולם לא מופיע בייצוא PNG/PDF */
+      doc.querySelectorAll('.loc-input, .d-loc').forEach(el => el.remove());
+      /* שם הקורס — מופיע בייצוא כטקסט כותרת נקי */
+      const cni = doc.querySelector('#courseNameInput');
+      if(cni){
+        if(cni.value && cni.value.trim()){
+          const h = doc.createElement('h2');
+          h.textContent = cni.value.trim() + ' —';
+          cni.replaceWith(h);
+        } else cni.remove();
+      }
+    }
+  });
+}
+async function exportPNG(){
+  const w = getWeek(state.activeWeek);
+  if(!w){ toast('אין שבוע פעיל'); return; }
+  toast('מכין תמונה…');
+  renderGrid(); /* אם אנחנו בדף המרצים — מציג את הלוח לצילום */
+  await new Promise(r => setTimeout(r, 50));
+  const canvas = await captureWeek();
+  render();
+  const i = state.weeks.indexOf(w);
+  canvas.toBlob(b => downloadBlob(b, 'מערכת-שעות-שבוע-' + (i+1) + '.png'), 'image/png');
+}
+async function exportPDF(){
+  if(!state.weeks.length){ toast('אין שבועות לייצוא'); return; }
+  toast('מכין PDF…');
+  const pdf = await buildSchedulePDF();
+  render();
+  pdf.save('מערכת-שעות.pdf');
+}
+
+/* ---------- שמירה כקובץ HTML עצמאי שנפתח בקליק ---------- */
+function saveStandaloneHTML(){
+  const clone = document.documentElement.cloneNode(true);
+  /* ניקוי כל מה שנוצר דינמית — הכל ייבנה מחדש מהנתונים בפתיחה */
+  ['#captureArea','#tabs','#warehouse','#weekControls','#statsBar','#toast','#palette','#out']
+    .forEach(sel => { const el = clone.querySelector(sel); if(el) el.innerHTML = ''; });
+  clone.querySelectorAll('.overlay').forEach(el => el.setAttribute('hidden', ''));
+  clone.querySelectorAll('#menu').forEach(el => el.setAttribute('hidden', ''));
+  clone.querySelectorAll('input[type=file]').forEach(el => { el.value = ''; });
+  /* הטמעת הנתונים */
+  const old = clone.querySelector('#embeddedState');
+  if(old) old.remove();
+  const tag = document.createElement('script');
+  tag.id = 'embeddedState';
+  tag.type = 'application/json';
+  tag.textContent = JSON.stringify(state).replace(/</g, '\\u003c');
+  const body = clone.querySelector('body');
+  body.insertBefore(tag, body.firstChild);
+
+  const cn = (state.courseName || 'קורס').trim();
+  const doc = '<!DOCTYPE html>\n' + clone.outerHTML;
+  downloadBlob(new Blob([doc], { type:'text/html;charset=utf-8' }), cn + '.html');
+  toast('הקובץ נשמר — לחיצה כפולה עליו תפתח את הקורס עם כל הנתונים');
+}
+
+/* ===================== מדריך על המסך (בועיות) ===================== */
+const TOUR_KEY = 'scheduleBuilder.tourDone';
+const PAGE_KEY = p => 'scheduleBuilder.tour.' + p;
+
+/* לכל דף — רשימת הכפתורים והשדות, עם הסבר קצר. שלב שאין לו אלמנט במסך מדולג. */
+const TOURS = {
+  board: [
+    { sel:'.nav-group', t:'ארבעת הדפים של המערכת',
+      x:'<b>מערכת שעות</b> — בניית הלוח.<br><b>דף מרצים</b> — פרטי המרצים ושליחת מיילים וזימונים.<br><b>הנחיות לצוות</b> — דף תפעול ליום הקורס.<br><b>סילבוס</b> — מסמך הקורס המלא.' },
+    { sel:'#menuBtn', t:'שמירת הקורס — חשוב!',
+      x:'המידע <b>אינו נשמר לבד</b>. בסיום העבודה לחצו כאן ובחרו <b>שמירת הקורס לקובץ</b> — ייווצר קובץ אחד שמכיל את הקורס כולו. לחיצה כפולה עליו בעתיד תפתח את המערכת עם כל הנתונים.' },
+    { sel:'#helpBtn', t:'המדריך תמיד כאן',
+      x:'לחיצה כאן מפעילה מחדש את ההסבר של הדף שאתם נמצאים בו.' },
+    { sel:'#courseNameInput', t:'שם הקורס',
+      x:'הקלידו כאן את שם הקורס. הוא יופיע בכותרת הלוח, בייצוא, במיילים למרצים ובסילבוס.' },
+    { sel:'.tab-add', t:'הוספת שבוע',
+      x:'קורס שנפרש על כמה שבועות? כל לחיצה מוסיפה שבוע חדש עם לשונית משלו. מעבר בין שבועות בלחיצה על הלשוניות.' },
+    { sel:'#addDayBtn', t:'ניהול ימי הלימוד',
+      x:'<b>הוסף יום</b> מוסיף עמודה ללוח (עד 6 ימים).<br><b>תאריכים ברצף</b> מסדר את כל הימים אוטומטית מתאריך פתיחה.<br><b>מחיקת השבוע</b> מסירה את השבוע כולו.' },
+    { sel:'.d-date-input', t:'תאריך לכל יום בנפרד',
+      x:'לחצו על התאריך כדי לשנות אותו. ימי הלימוד <b>לא חייבים להיות רצופים</b> — אפשר לקבוע לכל עמודה תאריך אחר, ושם היום יתעדכן לבד.' },
+    { sel:'.cluster', t:'שם אשכול (רשות)',
+      x:'אפשר לתת לכל יום כותרת נושאית — למשל "אשכול פתיחה". השדה אינו חובה, ואם נשאר ריק הוא לא יופיע בייצוא.' },
+    { sel:'#addUnitBtn', t:'יצירת יחידות לימוד',
+      x:'<b>+ יחידת לימוד</b> יוצר הרצאה חדשה (שם, מרצה, משך וצבע).<br><b>+ הפסקה</b> יוצר הפסקה בעיצוב אפור מיוחד.' },
+    { sel:'#warehouse', t:'המחסן',
+      x:'כאן ממתינות היחידות שטרם שובצו. <b>גררו</b> יחידה מכאן אל היום והשעה הרצויים בלוח. גרירה חזרה לכאן מוציאה יחידה מהלוח בלי למחוק אותה.' },
+    { sel:'.day-col', t:'הלוח עצמו',
+      x:'<b>גרירה</b> מזיזה יחידה ליום או לשעה אחרת (גם בין שבועות).<br><b>מתיחת הקצה התחתון</b> קובעת את משך היחידה — השעות מתעדכנות לבד.<br><b>לחיצה כפולה</b> פותחת עריכה.' },
+    { sel:'#statsBar', t:'סיכום הקורס',
+      x:'מתעדכן לבד: סך שעות הקורס, מספר המפגשים, מספר המרצים ומספר יחידות הלימוד.' },
+    { sel:'#expXlsxBtn', t:'ייצוא הלוח',
+      x:'<b>Excel</b> — טבלה צבעונית של כל השבועות.<br><b>PDF</b> — מוכן להדפסה.<br><b>PNG</b> — תמונה של השבוע המוצג.<br>שימו לב: אלה ייצוגים להצגה — לשמירת הקורס עצמו השתמשו בתפריט השמירה.' }
+  ],
+  lecturers: [
+    { sel:'.lect-table', t:'כל המרצים במקום אחד',
+      x:'הטבלה נבנית לבד מהיחידות שבלוח. מרצה שמלמד כמה יחידות מופיע בשורה אחת עם כל ההרצאות והמועדים שלו.' },
+    { sel:'.lect-mail-input', t:'מייל המרצה',
+      x:'הזינו כאן כתובת מייל. היא תשמש בשדה "אל" בכל מייל וזימון שתשלחו למרצה.' },
+    { sel:'.lect-ext-input', t:'מרצה חיצוני',
+      x:'סימון הריבוע פותח שדות נוספים: חברה/ארגון, נייד, וסימון <b>נדרשת חנייה</b> (ואז מספר רכב וסוג רכב). הפרטים מופיעים גם בדף ההנחיות לצוות ובסילבוס.' },
+    { sel:'.mail-btn', t:'מייל עם לו"ז מצורף',
+      x:'מכין מייל מוכן למרצה עם טבלת ההרצאות שלו, ומצרף את לוח הזמנים המלא כ-PDF. הקובץ שיורד נפתח בתוכנת המייל כטיוטה לשליחה.' },
+    { sel:'.mail-plain-btn', t:'מייל ללא צרופה',
+      x:'אותו נוסח בדיוק, בלי קובץ הלו"ז המצורף.' },
+    { sel:'.invite-btn', t:'זימונים ליומן',
+      x:'יוצר זימון יומן לכל ההרצאות של המרצה — עם התאריך, השעות והמיקום. פתיחת הקובץ פותחת את הזימון ביומן, ומשם אפשר לשלוח למרצה.' },
+    { sel:'#lectXlsxBtn', t:'ייצוא רשימת המרצים',
+      x:'מוריד את הטבלה כקובץ Excel מסודר.' }
+  ],
+  staff: [
+    { sel:'.staff-day', t:'דף התפעול ליום הקורס',
+      x:'הדף מחולק לימים לפי הלוח, ומיועד לצוות שנמצא בשטח כדי לדעת מה קורה בכל יום.' },
+    { sel:'.sloc-input', t:'מיקום וסידור הכיתה',
+      x:'לכל יום אפשר לרשום היכן הקורס מתקיים וכיצד לסדר את הכיתה (למשל ח / שולחנות עגולים).' },
+    { sel:'.chk-add', t:'צ׳קליסט לכל יחידה',
+      x:'הוסיפו הנחיות ספציפיות ליחידה — למשל "להכין מקרן". אפשר לסמן ✓ כשבוצע ולמחוק בכפתור ✕.' },
+    { sel:'#staffPdfBtn', t:'ייצוא ההנחיות',
+      x:'PDF להדפסה, Word לעריכה, או Excel — לפי הצורך של הצוות.' }
+  ],
+  syllabus: [
+    { sel:'.syl-auto', t:'שדות שמתמלאים לבד',
+      x:'כל מה שמופיע <b>בכחול</b> נלקח אוטומטית מהלוח — תאריך, שם הקורס, מספר הימים והשעות, שעות אקדמיות ומועדי הקורס. אין צורך למלא אותם.' },
+    { sel:'.syl-table textarea', t:'השדות שאתם ממלאים',
+      x:'רקע, קהל יעד, מטרה, הישגי למידה, רציונל ותנאי סף. הכל נשמר תוך כדי הקלדה.' },
+    { sel:'.syl-eval', t:'תוכנית הערכת אפקטיביות',
+      x:'לכל רמת הערכה: מתי בודקים (לפני הפעילות / במהלכה / בסופה), באיזו שיטה, ומה נבדק.' },
+    { sel:'#sylDocBtn', t:'ייצוא הסילבוס ל-Word',
+      x:'מפיק מסמך מלא ומעוצב עם כל הטבלאות, פרטי המרצים החיצוניים, ולוח הזמנים בסוף.' }
+  ]
+};
+
+let cmSteps = [], cmIdx = 0, cmActive = false, welcomePending = false;
+
+function cmEnd(){
+  cmActive = false;
+  $('#cmSpot').hidden = true;
+  $('#cmBubble').hidden = true;
+  try{ localStorage.setItem(PAGE_KEY(state.page), '1'); localStorage.setItem(TOUR_KEY, '1'); }catch(e){}
+}
+
+function cmRender(){
+  const st = cmSteps[cmIdx];
+  const el = document.querySelector(st.sel);
+  if(!el){ cmNextStep(); return; }
+  try{ el.scrollIntoView({ block:'center', inline:'center' }); }catch(e){}
+  const r = el.getBoundingClientRect();
+  const spot = $('#cmSpot'), bub = $('#cmBubble');
+  spot.hidden = false; bub.hidden = false;
+  spot.style.left = (r.left - 5) + 'px';
+  spot.style.top = (r.top - 5) + 'px';
+  spot.style.width = (r.width + 10) + 'px';
+  spot.style.height = (r.height + 10) + 'px';
+
+  $('#cmBadge').textContent = 'שלב ' + (cmIdx + 1) + ' מתוך ' + cmSteps.length;
+  $('#cmTitle').textContent = st.t;
+  $('#cmText').innerHTML = st.x;
+  $('#cmPrev').style.display = cmIdx === 0 ? 'none' : '';
+  $('#cmNext').textContent = cmIdx === cmSteps.length - 1 ? 'סיום ✓' : 'הבא ←';
+  $('#cmSkip').style.display = cmIdx === cmSteps.length - 1 ? 'none' : '';
+
+  const bw = bub.offsetWidth, bh = bub.offsetHeight, gap = 14;
+  let left = r.left + r.width / 2 - bw / 2;
+  left = Math.max(12, Math.min(window.innerWidth - bw - 12, left));
+  let top = r.bottom + gap;
+  if(top + bh > window.innerHeight - 12){
+    top = r.top - bh - gap;
+    if(top < 12) top = Math.max(12, Math.min(window.innerHeight - bh - 12, r.bottom + gap));
+  }
+  bub.style.left = left + 'px';
+  bub.style.top = top + 'px';
+}
+
+function cmNextStep(){
+  if(cmIdx >= cmSteps.length - 1){ cmEnd(); return; }
+  cmIdx++; cmRender();
+}
+function startTour(page){
+  const list = (TOURS[page] || []).filter(s => document.querySelector(s.sel));
+  if(!list.length){ toast('אין כרגע מה להסביר בדף הזה — נסו אחרי שתוסיפו תוכן'); return; }
+  cmSteps = list; cmIdx = 0; cmActive = true;
+  cmRender();
+}
+$('#cmNext').addEventListener('click', () => { if(cmIdx === cmSteps.length - 1) cmEnd(); else cmNextStep(); });
+$('#cmPrev').addEventListener('click', () => { if(cmIdx > 0){ cmIdx--; cmRender(); } });
+$('#cmSkip').addEventListener('click', cmEnd);
+$('#helpBtn').addEventListener('click', () => startTour(state.page));
+window.addEventListener('resize', () => { if(cmActive) cmRender(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && cmActive) cmEnd(); });
+
+/* פתיחה אוטומטית בכניסה ראשונה לכל דף */
+function maybeAutoTour(){
+  /* לא מתחילים בועיות כל עוד מסך הפתיחה פתוח או ממתין להיפתח */
+  if(cmActive || welcomePending || !$('#welcomeOverlay').hidden) return;
+  let seen = true;
+  try{ seen = localStorage.getItem(PAGE_KEY(state.page)) === '1'; }catch(e){}
+  if(!seen) setTimeout(() => { if(!cmActive) startTour(state.page); }, 350);
+}
+
+$('#wcStart').addEventListener('click', () => {
+  welcomePending = false;
+  $('#welcomeOverlay').hidden = true;
+  setTimeout(() => startTour(state.page), 250);
+});
+$('#wcSkip').addEventListener('click', () => {
+  welcomePending = false;
+  $('#welcomeOverlay').hidden = true;
+  try{
+    localStorage.setItem(TOUR_KEY, '1');
+    Object.keys(TOURS).forEach(p => localStorage.setItem(PAGE_KEY(p), '1'));
+  }catch(e){}
+});
+
+/* ===================== גיבוי בקוקיז ===================== */
+const CK = 'sbCourse', CK_MAX = 10, CK_SIZE = 3200;
+function saveCookieBackup(){
+  try{
+    const data = encodeURIComponent(JSON.stringify(state));
+    const n = Math.ceil(data.length / CK_SIZE);
+    if(n > CK_MAX){ clearCookieBackup(); return false; }
+    for(let i = 0; i < n; i++){
+      document.cookie = CK + i + '=' + data.slice(i * CK_SIZE, (i + 1) * CK_SIZE) + ';path=/;max-age=31536000;SameSite=Lax';
+    }
+    for(let i = n; i < CK_MAX; i++) document.cookie = CK + i + '=;path=/;max-age=0';
+    document.cookie = CK + 'N=' + n + ';path=/;max-age=31536000;SameSite=Lax';
+    return true;
+  }catch(e){ return false; }
+}
+function readCookie(name){
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+  return m ? m[1] : null;
+}
+function clearCookieBackup(){
+  try{
+    for(let i = 0; i < CK_MAX; i++) document.cookie = CK + i + '=;path=/;max-age=0';
+    document.cookie = CK + 'N=;path=/;max-age=0';
+  }catch(e){}
+}
+function loadCookieBackup(){
+  try{
+    const n = parseInt(readCookie(CK + 'N'), 10);
+    if(!(n > 0)) return null;
+    let data = '';
+    for(let i = 0; i < n; i++){
+      const part = readCookie(CK + i);
+      if(part === null) return null;
+      data += part;
+    }
+    const s = JSON.parse(decodeURIComponent(data));
+    return (s && Array.isArray(s.weeks) && Array.isArray(s.units)) ? s : null;
+  }catch(e){ return null; }
+}
+
+/* ===================== init ===================== */
+/* כל שגיאת ריצה מוצגת למשתמש במקום להיעלם בשקט */
+window.addEventListener('error', e => {
+  try{ toast('שגיאת מערכת: ' + e.message); }catch(_){}
+});
+
+/* תיקון אוטומטי + הגירה ממבנה נתונים ישן (startDate/clusters -> days) */
+function sanitizeState(){
+  if(!state || typeof state !== 'object'){ state = newState(); return; }
+  if(!Array.isArray(state.weeks)) state.weeks = [];
+  if(!Array.isArray(state.units)) state.units = [];
+  state.weeks = state.weeks.filter(w => w && typeof w === 'object');
+  state.units = state.units.filter(u => u && typeof u === 'object');
+  state.weeks.forEach(w => {
+    if(!Array.isArray(w.days)){
+      const days = [];
+      const base = parseISO(w.startDate);
+      for(let i = 0; i < 5; i++){
+        let date = null;
+        if(base){ const d = new Date(base); d.setDate(d.getDate() + i); date = isoOf(d); }
+        days.push({ date, cluster: (Array.isArray(w.clusters) && typeof w.clusters[i] === 'string') ? w.clusters[i] : '' });
+      }
+      w.days = days;
+      delete w.startDate; delete w.clusters;
+    }
+    w.days = w.days.filter(dd => dd && typeof dd === 'object').slice(0, MAX_DAYS);
+    if(!w.days.length) w.days = [{ date:null, cluster:'' }];
+    w.days.forEach(dd => {
+      if(typeof dd.cluster !== 'string') dd.cluster = '';
+      if(typeof dd.location !== 'string') dd.location = '';
+      if(dd.date && !parseISO(dd.date)) dd.date = null;
+    });
+  });
+  if(typeof state.courseName !== 'string') state.courseName = '';
+  if(['lecturers','staff','syllabus'].indexOf(state.page) < 0) state.page = 'board';
+  if(!state.lecturerInfo || typeof state.lecturerInfo !== 'object' || Array.isArray(state.lecturerInfo)) state.lecturerInfo = {};
+  /* הגירה מהמבנה הישן: מיפוי שם->מייל */
+  if(state.lecturerEmails && typeof state.lecturerEmails === 'object'){
+    Object.keys(state.lecturerEmails).forEach(k => {
+      if(!state.lecturerInfo[k]) state.lecturerInfo[k] = {};
+      if(!state.lecturerInfo[k].email) state.lecturerInfo[k].email = state.lecturerEmails[k] || '';
+    });
+    delete state.lecturerEmails;
+  }
+  Object.keys(state.lecturerInfo).forEach(k => {
+    const v = state.lecturerInfo[k];
+    if(!v || typeof v !== 'object'){ state.lecturerInfo[k] = { email:'', external:false, org:'', mobile:'', idNum:'', parking:false, car:'', carType:'', cost:'' }; return; }
+    ['email','mobile','idNum','car','org','carType','cost'].forEach(f => { if(typeof v[f] !== 'string') v[f] = ''; });
+    v.external = !!v.external;
+    v.parking = !!v.parking;
+  });
+  /* צ'קליסט ליחידות + סידור כיתה לימים */
+  state.units.forEach(u => {
+    if(!Array.isArray(u.checklist)) u.checklist = [];
+    if(!u.syl || typeof u.syl !== 'object') u.syl = { outcomes:'', topics:'', methods:'', cluster:'' };
+    ['outcomes','topics','methods','cluster'].forEach(f => { if(typeof u.syl[f] !== 'string') u.syl[f] = ''; });
+  });
+  state.weeks.forEach(w => w.days.forEach(dd => {
+    if(typeof dd.setup !== 'string') dd.setup = '';
+    dd.laptop = !!dd.laptop;
+  }));
+  if(!state.syllabus || typeof state.syllabus !== 'object') state.syllabus = {};
+  ['background','audience','goal','outcomes','rationale','prereq','notes','profManager','devManager','learnManager'].forEach(f => {
+    if(typeof state.syllabus[f] !== 'string') state.syllabus[f] = '';
+  });
+  if(!Array.isArray(state.syllabus.evalRows) || state.syllabus.evalRows.length !== 4){
+    state.syllabus.evalRows = [0,1,2,3].map(() => ({ when:'', how:'', what:'' }));
+  }
+  state.syllabus.evalRows.forEach(r => ['when','how','what'].forEach(f => { if(typeof r[f] !== 'string') r[f] = ''; }));
+  state.units.forEach(u => { if(typeof u.email !== 'string') u.email = ''; });
+  /* יחידות שמצביעות ליום/שבוע שלא קיים — חוזרות למחסן */
+  state.units.forEach(u => {
+    if(u.loc){
+      const w = getWeek(u.loc.weekId);
+      if(!w || u.loc.day >= w.days.length || u.loc.day < 0){
+        u.dur = u.loc.dur || u.dur || 4;
+        u.loc = null;
+      }
+    }
+  });
+  const maxW = state.weeks.reduce((m, w) => Math.max(m, +w.id || 0), 0);
+  const maxU = state.units.reduce((m, u) => Math.max(m, +u.id || 0), 0);
+  if(!Number.isFinite(+state.wseq) || +state.wseq <= maxW) state.wseq = maxW + 1;
+  if(!Number.isFinite(+state.useq) || +state.useq <= maxU) state.useq = maxU + 1;
+  if(state.mode !== 'view') state.mode = 'edit';
+}
+
+(function init(){
+  /* קובץ שנשמר כ-HTML עצמאי — הנתונים מוטמעים בתוכו וגוברים על השמירה המקומית */
+  let embedded = false;
+  try{
+    const tag = document.getElementById('embeddedState');
+    if(tag && tag.textContent.trim()){
+      state = JSON.parse(tag.textContent);
+      embedded = true;
+    }
+  }catch(e){ console.error('embedded state parse failed', e); }
+
+  /* אם אין שמירה מקומית — משחזרים מגיבוי הקוקיז */
+  let fromCookie = false;
+  if(!embedded && !loadLS()){
+    const ck = loadCookieBackup();
+    if(ck){ state = ck; fromCookie = true; }
+  }
+  if(!embedded && !fromCookie){
+    state = newState();
+    addWeek(nextSundayISO());
+    newUnit({ name:'יחידת לדוגמה', lecturer:'שם המרצה', color:'#4c6ef5', dur:6 });
+    newUnit({ name:'הפסקה', isBreak:true, color:'#9aa3b2', dur:1 });
+    saveLS();
+  }
+  sanitizeState();
+  if(embedded || fromCookie) saveLS();
+  if(fromCookie) setTimeout(() => toast('העבודה שוחזרה מגיבוי. חשוב: כדי לשמור את הקורס במחשב יש ללחוץ "שמירת הקורס לקובץ"'), 700);
+  if(state.activeWeek && !getWeek(state.activeWeek)) state.activeWeek = state.weeks.length ? state.weeks[0].id : null;
+  if(!state.activeWeek && state.weeks.length) state.activeWeek = state.weeks[0].id;
+
+  /* מסך פתיחה בכניסה הראשונה — נקבע לפני הרינדור כדי שהבועיות לא ייפתחו במקביל */
+  let seen = false;
+  try{ seen = localStorage.getItem(TOUR_KEY) === '1'; }catch(e){}
+  welcomePending = (!seen && !embedded);
+
+  render();
+
+  if(welcomePending) setTimeout(() => { $('#welcomeOverlay').hidden = false; }, 300);
+})();
+</script>
+</body>
+</html>
