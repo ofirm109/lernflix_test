@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מתרגם חי · ספרדית ← עברית</title>
+<style>
+  :root{
+    --bg:#0b0e13; --bg2:#131824; --line:#243044; --soft:#1a2130;
+    --fg:#eef2f8; --dim:#8b98ad; --es:#7f8da3;
+    --accent:#4ade80; --warn:#fbbf24; --bad:#f87171; --blue:#60a5fa;
+    --fs:36px;
+  }
+  html[data-light]{
+    --bg:#fbfbfd; --bg2:#ffffff; --line:#e3e7ee; --soft:#f4f6fa;
+    --fg:#101623; --dim:#5d6b80; --es:#7b879a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font-family:"Segoe UI","Assistant","Noto Sans Hebrew",Arial,sans-serif;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+
+  /* ---------- סרגל עליון ---------- */
+  header{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--line);flex:0 0 auto;flex-wrap:wrap}
+  .brand{font-weight:700;font-size:15px;margin-inline-end:4px;white-space:nowrap}
+  .brand small{color:var(--dim);font-weight:400}
+  button{font:inherit;font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;background:#1e2636;color:var(--fg);border:1px solid var(--line);white-space:nowrap}
+  html[data-light] button{background:#f1f3f7}
+  button:hover{border-color:#3a4b68}
+  button:disabled{opacity:.5;cursor:default}
+  button.primary{background:#166534;border-color:#22c55e;color:#eaffef;font-weight:600}
+  button.primary.on{background:#7f1d1d;border-color:#ef4444;color:#ffecec}
+  button.ghost{background:transparent}
+  .spacer{flex:1}
+
+  .status{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--dim);white-space:nowrap}
+  .dot{width:9px;height:9px;border-radius:50%;background:#556;flex:0 0 auto}
+  .dot.on{background:var(--accent);animation:pulse 1.6s infinite}
+  .dot.err{background:var(--bad)}
+  .dot.wait{background:var(--warn)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.7)}70%{box-shadow:0 0 0 9px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+  .meter{width:64px;height:8px;border-radius:99px;background:#20293a;overflow:hidden;flex:0 0 auto}
+  .meter i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#eab308,#ef4444);transition:width .08s linear}
+  #stats{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  /* ---------- זרם התרגום ---------- */
+  main{flex:1;overflow-y:auto;padding:20px 26px 24px;display:flex;flex-direction:column}
+  main::before{content:"";margin-top:auto}
+  main::-webkit-scrollbar{width:10px}
+  main::-webkit-scrollbar-thumb{background:#2b374d;border-radius:8px}
+
+  /* פסקה = קטע דיבור רצוף. ההפרדה מקלה על המעקב לאורך יום שלם */
+  .para{flex:0 0 auto;margin:0 0 28px;padding:14px 16px 6px;border-radius:12px;background:var(--soft);border:1px solid transparent}
+  .para.current{border-color:#22364f}
+  .ptime{font-size:11.5px;color:var(--dim);letter-spacing:.5px;font-variant-numeric:tabular-nums;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .ptime::after{content:"";flex:1;height:1px;background:var(--line)}
+  body.no-para .para{background:transparent;border-color:transparent;padding:0;margin-bottom:22px}
+  body.no-para .ptime{display:none}
+
+  .seg{margin:0 0 16px}
+  .seg:last-child{margin-bottom:8px}
+  .seg .he{font-size:var(--fs);line-height:1.3;font-weight:600;word-break:break-word;color:var(--fg);opacity:.62;transition:opacity .2s}
+  /* כל שורה נשברת ביוזמתנו באורך קריא — לא נמתחת על כל רוחב המסך */
+  .seg .he .ln{display:block}
+  .seg .he .ln + .ln{margin-top:3px}
+  .seg.current .he{opacity:1}
+  .seg .he.pending{opacity:.35;font-weight:400}
+  .seg .es{direction:ltr;text-align:right;font-size:calc(var(--fs) * .40);color:var(--es);margin-top:5px;line-height:1.35}
+  body.no-es .seg .es{display:none}
+
+  /* השורה שמתורגמת ממש עכשיו — באותו מקום בזרם, לא בשורה נפרדת */
+  .seg.interim .he{opacity:.8;font-weight:500}
+  .seg.interim .he .ln:last-child::after{content:"▌";color:var(--blue);animation:blink 1s steps(2) infinite;font-weight:400;margin-inline-start:3px}
+  @keyframes blink{50%{opacity:0}}
+  .seg.interim .es{color:#67758c}
+
+  .mark{flex:0 0 auto;display:flex;align-items:center;gap:10px;color:var(--warn);font-size:13px;margin:4px 0 28px;font-variant-numeric:tabular-nums}
+  .mark::before,.mark::after{content:"";flex:1;height:1px;background:#4a3d14}
+
+  #empty{color:var(--dim);text-align:center;margin-bottom:auto;line-height:2;font-size:16px}
+  #empty b{color:var(--fg)}
+  kbd{background:#1e2636;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px;font-family:inherit}
+
+  /* ---------- מצב ענק ---------- */
+  body.giant header{display:none}
+  body.giant main{padding:36px 48px 28px}
+  body.giant .para{background:transparent;border-color:transparent;padding:0;margin-bottom:30px}
+  body.giant .ptime{opacity:.45}
+  body.giant .seg .he{opacity:.22}
+  body.giant .seg.prev .he{opacity:.45}
+  body.giant .seg.current .he{opacity:1}
+  body.giant .seg .es{display:none}
+  #giantExit{display:none;position:fixed;top:10px;inset-inline-start:10px;z-index:40;opacity:.3}
+  body.giant #giantExit{display:block}
+  #giantExit:hover{opacity:1}
+
+  /* ---------- חלוניות ---------- */
+  .panel{position:fixed;inset:0;background:rgba(4,7,12,.75);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .panel.show{display:flex}
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:14px;width:min(640px,100%);max-height:88vh;overflow:auto;padding:22px 24px}
+  .card h2{margin:0 0 4px;font-size:19px}
+  .card p.hint{margin:0 0 18px;color:var(--dim);font-size:13px;line-height:1.6}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .row:last-of-type{border-bottom:none}
+  .row label{font-size:14px}
+  .row .sub{display:block;color:var(--dim);font-size:12px;margin-top:3px;line-height:1.5}
+  select{font:inherit;font-size:13px;padding:6px 10px;border-radius:8px;background:#1a2231;color:var(--fg);border:1px solid var(--line)}
+  html[data-light] select{background:#f1f3f7}
+  input[type=range]{width:150px}
+  .sw{width:46px;height:26px;border-radius:99px;background:#333f55;position:relative;cursor:pointer;flex:0 0 auto;border:none;padding:0}
+  .sw::after{content:"";position:absolute;top:3px;inset-inline-end:3px;width:20px;height:20px;border-radius:50%;background:#8b98ad;transition:.18s}
+  .sw.on{background:#166534}
+  .sw.on::after{inset-inline-end:23px;background:#4ade80}
+  .actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;align-items:center}
+
+  .check{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}
+  .check .ico{width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;font-size:13px;background:#2b374d;color:var(--dim)}
+  .check.ok .ico{background:#14532d;color:#4ade80}
+  .check.bad .ico{background:#4c1d1d;color:#f87171}
+  .check.run .ico{background:#3f3413;color:#fbbf24}
+  .check .body{flex:1;font-size:14px}
+  .check .body .det{color:var(--dim);font-size:12.5px;margin-top:4px;line-height:1.7;word-break:break-word}
+  .bigmeter{height:14px;border-radius:99px;background:#20293a;overflow:hidden;margin-top:8px}
+  .bigmeter i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#eab308,#ef4444)}
+
+  #toast{position:fixed;bottom:22px;inset-inline-start:50%;transform:translateX(50%);background:#1e2636;border:1px solid var(--line);color:var(--fg);padding:10px 18px;border-radius:99px;font-size:13px;z-index:80;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+  #toast.show{opacity:1}
+  .banner{background:#4c1d1d;color:#ffd9d9;padding:9px 26px;font-size:13.5px;display:none;flex:0 0 auto;border-bottom:1px solid #7f1d1d;line-height:1.6}
+  .banner.show{display:block}
+  .banner b{color:#fff}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">מתרגם חי <small>· ES → HE</small></div>
+  <button id="btnRun" class="primary">▶ התחל להאזין</button>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">מוכן</span></div>
+  <div class="meter" id="meterWrap" title="עוצמת הקול שהמיקרופון קולט"><i id="meterBar"></i></div>
+  <div id="stats">00:00 · 0</div>
+  <div class="spacer"></div>
+  <button class="ghost" id="btnMark" title="סימון רגע חשוב (B)">🔖 סימנייה</button>
+  <button class="ghost" id="btnFontDown" title="הקטן טקסט">א−</button>
+  <button class="ghost" id="btnFontUp" title="הגדל טקסט">א+</button>
+  <button class="ghost" id="btnGiant" title="מצב תצוגה ענק (G)">⛶ ענק</button>
+  <button class="ghost" id="btnSave" title="שמור תמליל">שמור</button>
+  <button class="ghost" id="btnCheck">בדיקה</button>
+  <button class="ghost" id="btnSettings">⚙</button>
+</header>
+
+<div class="banner" id="banner"></div>
+
+<main id="stream">
+  <div id="empty">
+    לחץ <b>“התחל להאזין”</b> — כל מה שייאמר בספרדית יופיע כאן בעברית.<br>
+    לפני הכנס כדאי להריץ פעם אחת <b>בדיקה</b>.<br><br>
+    <span style="font-size:13px">
+      <kbd>רווח</kbd> התחל/עצור · <kbd>G</kbd> מצב ענק · <kbd>F</kbd> מסך מלא · <kbd>B</kbd> סימנייה · <kbd>+</kbd>/<kbd>−</kbd> גודל
+    </span>
+  </div>
+</main>
+
+<button id="giantExit" class="ghost">יציאה ממצב ענק</button>
+
+<!-- ============ הגדרות ============ -->
+<div class="panel" id="pSettings">
+  <div class="card">
+    <h2>הגדרות</h2>
+    <p class="hint">נשמרות אוטומטית במחשב הזה.</p>
+
+    <div class="row">
+      <label>מבטא / שפת מקור<span class="sub">לכנס בספרד — “ספרדית (ספרד)”.</span></label>
+      <select id="setLang">
+        <option value="es-ES">ספרדית (ספרד)</option>
+        <option value="es-MX">ספרדית (מקסיקו)</option>
+        <option value="es-AR">ספרדית (ארגנטינה)</option>
+        <option value="es-CO">ספרדית (קולומביה)</option>
+        <option value="es-US">ספרדית (ארה״ב)</option>
+        <option value="ca-ES">קטלאנית (ברצלונה)</option>
+        <option value="en-US">אנגלית (ארה״ב)</option>
+        <option value="en-GB">אנגלית (בריטניה)</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label>תרגום תוך כדי דיבור<span class="sub">מציג את התרגום מיד, בלי לחכות לסוף המשפט. זה מה שהופך את התצוגה ללייב.</span></label>
+      <button class="sw on" id="setInterim" role="switch"></button>
+    </div>
+    <div class="row">
+      <label>קצב עדכון<span class="sub">כל כמה זמן התרגום החלקי מתרענן. מהיר יותר = חי יותר.</span></label>
+      <select id="setSpeed">
+        <option value="250">מהיר מאוד (250 מ״ש)</option>
+        <option value="400">מהיר (400 מ״ש)</option>
+        <option value="700">רגוע (700 מ״ש)</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>אורך שורה<span class="sub">הטקסט נשבר לשורות קצרות בסוף משפט ובפסיקים, כדי שיהיה נוח לקרוא תוך כדי האזנה.</span></label>
+      <select id="setLineLen">
+        <option value="36">קצר — כמו כתוביות</option>
+        <option value="48">בינוני</option>
+        <option value="70">ארוך</option>
+        <option value="999">בלי שבירה</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>חלוקה לפסקאות<span class="sub">קיבוץ המשפטים לקטעים לפי הפסקות בדיבור — עוזר למעקב לאורך יום שלם.</span></label>
+      <button class="sw on" id="setPara" role="switch"></button>
+    </div>
+    <div class="row">
+      <label>פסקה חדשה אחרי שקט של<span class="sub">גם אחרי 6 משפטים או 2 דקות רצופות.</span></label>
+      <select id="setParaGap">
+        <option value="3500">3.5 שניות</option>
+        <option value="6000">6 שניות</option>
+        <option value="10000">10 שניות</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>הצג את המקור בספרדית<span class="sub">שורה קטנה מתחת לכל תרגום.</span></label>
+      <button class="sw on" id="setShowEs" role="switch"></button>
+    </div>
+    <div class="row">
+      <label>מד עוצמת קול<span class="sub">מראה שהמיקרופון אכן קולט. אם הזיהוי מתנתק — כבה את זה.</span></label>
+      <button class="sw on" id="setMeter" role="switch"></button>
+    </div>
+    <div class="row">
+      <label>שמירה אוטומטית של התמליל<span class="sub" id="autosaveSub">נשמר כל 15 שניות לתיקייה transcripts.</span></label>
+      <button class="sw on" id="setAutosave" role="switch"></button>
+    </div>
+    <div class="row">
+      <label>גודל טקסט</label>
+      <input type="range" id="setFont" min="20" max="86" step="2">
+    </div>
+    <div class="row">
+      <label>ערכת צבעים בהירה<span class="sub">ברירת המחדל כהה — נוח יותר באולם מוחשך.</span></label>
+      <button class="sw" id="setLight" role="switch"></button>
+    </div>
+
+    <div class="actions">
+      <button id="btnDlTxt">הורד תמליל (TXT)</button>
+      <button id="btnDlHtml">הורד תמליל (HTML)</button>
+      <button id="btnClear">נקה מסך</button>
+      <div class="spacer"></div>
+      <button class="primary" id="btnCloseSettings">סגור</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ בדיקת מערכת ============ -->
+<div class="panel" id="pCheck">
+  <div class="card">
+    <h2>בדיקת מערכת</h2>
+    <p class="hint">הרץ פעם אחת לפני הכנס — עדיף באותו חדר ועם אותו מיקרופון.</p>
+    <div class="check" id="c1"><div class="ico">•</div><div class="body"><b>1. מצב הפעלה</b><div class="det">ממתין…</div></div></div>
+    <div class="check" id="c2"><div class="ico">•</div><div class="body"><b>2. דפדפן וזיהוי דיבור</b><div class="det">ממתין…</div></div></div>
+    <div class="check" id="c3"><div class="ico">•</div><div class="body"><b>3. שירות התרגום ומהירותו</b><div class="det">ממתין…</div></div></div>
+    <div class="check" id="c4"><div class="ico">•</div><div class="body"><b>4. מיקרופון</b><div class="det">ממתין…</div><div class="bigmeter"><i id="checkMeter"></i></div></div></div>
+    <div class="check" id="c5"><div class="ico">•</div><div class="body"><b>5. בדיקת דיבור חיה (10 שניות)</b><div class="det">לחץ “הרץ בדיקה” ואמור בקול, בספרדית: <span dir="ltr">“Buenos días, ¿cómo están todos?”</span></div></div></div>
+    <div class="actions">
+      <button class="primary" id="btnRunCheck">הרץ בדיקה</button>
+      <div class="spacer"></div>
+      <button id="btnCloseCheck">סגור</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+/* =========================================================
+   קבועים
+   ========================================================= */
+const PARA_MAX_SEGS = 6;         // פסקה מקסימלית במשפטים
+const PARA_MAX_MS   = 120000;    // ...או בשתי דקות
+const DOM_MAX_SEGS  = 400;       // כמה משפטים נשארים במסך (יום שלם = אלפים)
+const IDLE_HINT_MS  = 25000;
+
+const MAX_UTT_WORDS = 32;        // אחרי כמה מילים לא מחכים יותר לכרום ומקבעים חלק
+const CUT_AT_WORDS  = 22;        // ...וכמה מילים מקבעים בכל פעם
+
+const DEFAULTS = { lang:'es-ES', interim:true, speed:250, para:true, paraGap:6000,
+                   showEs:true, meter:true, autosave:true, font:36, light:false, lineLen:48 };
+let cfg = Object.assign({}, DEFAULTS);
+try{ const raw = localStorage.getItem('tv-cfg'); if (raw) cfg = Object.assign(cfg, JSON.parse(raw)); }catch(e){}
+function saveCfg(){ try{ localStorage.setItem('tv-cfg', JSON.stringify(cfg)); }catch(e){} }
+
+const segments = [];             // {id, p, time, es, he, mark}
+let seq = 0, paraNo = 0, dirty = false, startedAt = null;
+/* שם הקובץ נשאר באנגלית כדי שיישמר נכון בכל מערכת; הכותרת בתוכו בעברית */
+const sessionName  = 'transcript-' + new Date().toISOString().slice(0,16).replace('T','_').replace(':','-');
+const sessionTitle = 'תמליל ' + new Date().toLocaleString('he-IL', { dateStyle:'long', timeStyle:'short' });
+let MODE = 'standalone';
+
+/* =========================================================
+   כלים
+   ========================================================= */
+let toastTimer=null;
+function toast(msg, ms){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'), ms||2800); }
+function banner(html){ const b=$('banner'); if(!html){b.classList.remove('show');return;} b.innerHTML=html; b.classList.add('show'); }
+const p2 = n => String(n).padStart(2,'0');
+function hhmm(d){ return p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()); }
+function setStatus(text, cls){ $('statusText').textContent=text; $('dot').className='dot'+(cls?' '+cls:''); }
+const esc = x => String(x).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+/* =========================================================
+   שבירת שורות יזומה
+   דיבור רצוף מגיע כרצף אחד ארוך. שוברים אותו לשורות קצרות —
+   קודם בסוף משפט, אחר כך בפסיק, ולבסוף לפי אורך — כדי שאפשר
+   יהיה לקרוא תוך כדי האזנה בלי לאבד את המקום.
+   ========================================================= */
+function fitChars(){
+  const w = (stream ? stream.clientWidth : 1200) - 90;
+  const est = Math.floor(w / (cfg.font * 0.52));
+  return Math.max(18, Math.min(cfg.lineLen, est));
+}
+function splitLines(text, maxChars){
+  const out = [];
+  const sentences = String(text||'').trim().split(/(?<=[.!?…])\s+/).filter(Boolean);
+  for (const s of sentences){
+    if (s.length <= maxChars){ out.push(s); continue; }
+    const parts = s.split(/(?<=[,;:־–—])\s+/);
+    let line = '';
+    for (const part of parts){
+      if (part.length > maxChars){
+        if (line){ out.push(line); line = ''; }
+        let cur = '';
+        for (const w of part.split(/\s+/)){
+          if (cur && (cur + ' ' + w).length > maxChars){ out.push(cur); cur = w; }
+          else cur = cur ? cur + ' ' + w : w;
+        }
+        if (cur) line = cur;
+      } else if (!line) line = part;
+      else if ((line + ' ' + part).length <= maxChars) line += ' ' + part;
+      else { out.push(line); line = part; }
+    }
+    if (line) out.push(line);
+  }
+  return out;
+}
+function renderHe(heEl, text, pending){
+  heEl.dataset.full = text || '';
+  heEl.classList.toggle('pending', !!pending);
+  heEl.textContent = '';
+  const lines = pending && !text ? ['…'] : splitLines(text, fitChars());
+  for (const l of lines){
+    const d = document.createElement('div');
+    d.className = 'ln';
+    d.textContent = l;
+    heEl.appendChild(d);
+  }
+}
+function rerenderAll(){
+  document.querySelectorAll('.seg .he').forEach(el => {
+    if (el.dataset.full !== undefined) renderHe(el, el.dataset.full, el.classList.contains('pending'));
+  });
+}
+
+/* =========================================================
+   תרגום
+   נקודת הקצה הקלה (clients5) נבדקה כמהירה פי 3 מהאחרות,
+   ולכן היא הראשונה בתור. השאר משמשות כגיבוי.
+   ========================================================= */
+const GL = { he:'iw', es:'es', en:'en', ca:'ca' };
+const tcache = new Map();
+let lastMs = 0;
+
+async function directTranslate(q, sl, tl, signal){
+  const s = GL[sl]||sl, t = GL[tl]||tl;
+  const attempts = [
+    async () => {
+      const r = await fetch('https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl='+s+'&tl='+t+'&q='+encodeURIComponent(q), {signal});
+      const j = await r.json();
+      if (Array.isArray(j)) return j.map(x => typeof x==='string' ? x : (x&&x[0])||'').join(' ');
+      if (j && j.sentences) return j.sentences.map(x => x.trans||'').join('');
+      return '';
+    },
+    async () => {
+      const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl='+s+'&tl='+t+'&q='+encodeURIComponent(q), {signal});
+      const j = await r.json();
+      return j[0].map(x => (x&&x[0])||'').join('');
+    },
+    async () => {
+      const r = await fetch('https://api.mymemory.translated.net/get?langpair='+sl+'|'+(tl==='iw'?'he':tl)+'&q='+encodeURIComponent(q), {signal});
+      const j = await r.json();
+      return (j.responseData && j.responseData.translatedText) || '';
+    }
+  ];
+  let lastErr;
+  for (const a of attempts){
+    try{ const out = await a(); if (out && out.trim()) return out; }
+    catch(e){ if (e.name === 'AbortError') throw e; lastErr = e; }
+  }
+  throw lastErr || new Error('all providers failed');
+}
+
+async function translate(text, signal){
+  const q = (text||'').trim();
+  if (!q) return '';
+  if (tcache.has(q)) return tcache.get(q);
+  const sl = cfg.lang.split('-')[0];
+  const t0 = performance.now();
+  let out;
+  if (MODE === 'server'){
+    const r = await fetch('/api/translate?sl='+sl+'&tl=he&q='+encodeURIComponent(q), {signal});
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    out = j.text || '';
+  } else {
+    out = await directTranslate(q, sl, 'he', signal);
+  }
+  lastMs = Math.round(performance.now() - t0);
+  if (tcache.size > 4000) tcache.clear();
+  tcache.set(q, out);
+  return out;
+}
+
+/* חימום החיבור: מבטל את ההשהיה של הבקשה הראשונה */
+function prewarm(){ translate('hola').catch(()=>{}); }
+
+/* =========================================================
+   רינדור — פסקאות, משפטים, ושורה חיה בתוך הזרם
+   ========================================================= */
+const stream = $('stream');
+let pinned = true;
+stream.addEventListener('scroll', () => {
+  pinned = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 90;
+});
+function scrollDown(){ if (pinned) stream.scrollTop = stream.scrollHeight; }
+
+let paras = [];          // {el, body, startedAt, count}
+let curPara = null;
+let lastFinalAt = 0;
+let curSegEl = null, prevSegEl = null;
+let interimEl = null;
+
+function clearEmpty(){ const e = $('empty'); if (e) e.remove(); }
+
+function newPara(){
+  clearEmpty();
+  if (curPara) curPara.el.classList.remove('current');
+  paraNo++;
+  const el = document.createElement('section');
+  el.className = 'para current';
+  const head = document.createElement('div');
+  head.className = 'ptime';
+  head.textContent = hhmm(new Date());
+  const body = document.createElement('div');
+  el.appendChild(head); el.appendChild(body);
+  stream.appendChild(el);
+  curPara = { el, body, startedAt: Date.now(), count: 0, no: paraNo };
+  paras.push(curPara);
+  return curPara;
+}
+
+function needNewPara(now){
+  if (!curPara) return true;
+  if (!cfg.para) return false;
+  return (now - lastFinalAt > cfg.paraGap) ||
+         (curPara.count >= PARA_MAX_SEGS) ||
+         (now - curPara.startedAt > PARA_MAX_MS);
+}
+
+function makeSegEl(es, cls){
+  const el = document.createElement('div');
+  el.className = 'seg' + (cls ? ' ' + cls : '');
+  const he = document.createElement('div'); he.className = 'he';
+  const sp = document.createElement('div'); sp.className = 'es'; sp.textContent = es;
+  el.appendChild(he); el.appendChild(sp);
+  renderHe(he, '', true);
+  return el;
+}
+
+function markCurrent(el){
+  if (prevSegEl) prevSegEl.classList.remove('prev');
+  if (curSegEl){ curSegEl.classList.remove('current'); curSegEl.classList.add('prev'); prevSegEl = curSegEl; }
+  curSegEl = el;
+  if (el) el.classList.add('current');
+}
+
+function pruneDom(){
+  let total = 0;
+  for (const p of paras) total += p.count;
+  while (total > DOM_MAX_SEGS && paras.length > 1){
+    const p = paras.shift();
+    total -= p.count;
+    p.el.remove();
+  }
+}
+
+function addSegment(es){
+  const now = Date.now();
+  if (needNewPara(now)) newPara();
+  lastFinalAt = now;
+  clearInterim();
+
+  const seg = { id: ++seq, p: curPara.no, time: hhmm(new Date()), es: es, he: '' };
+  const el = makeSegEl(es);
+  curPara.body.appendChild(el);
+  curPara.count++;
+  segments.push(seg);
+  markCurrent(el);
+  pruneDom();
+  scrollDown();
+  updateStats();
+
+  const heEl = el.querySelector('.he');
+  translate(es).then(he => {
+    seg.he = he;
+    renderHe(heEl, he || es, false);
+    dirty = true; backupLocal(); scrollDown(); banner('');
+  }).catch(err => {
+    renderHe(heEl, '⚠ ' + es, false);
+    banner('בעיה בשירות התרגום — בדוק את חיבור האינטרנט. <b>' + esc(err.message) + '</b>');
+  });
+  return seg;
+}
+
+function addMark(){
+  clearEmpty();
+  const el = document.createElement('div');
+  el.className = 'mark';
+  const t = hhmm(new Date());
+  el.textContent = '🔖 ' + t;
+  stream.appendChild(el);
+  segments.push({ id: ++seq, p: curPara ? curPara.no : 0, time: t, mark: true, es:'', he:'' });
+  curPara = null;                 // הסימנייה פותחת פסקה חדשה
+  dirty = true; backupLocal(); scrollDown();
+  toast('סומן ' + t);
+}
+
+/* ---------- השורה החיה: מוצגת בתוך הזרם, במקום שבו המשפט יופיע ---------- */
+function clearInterim(){
+  if (interimEl){ interimEl.remove(); interimEl = null; }
+}
+function showInterim(es, he){
+  if (!es){ clearInterim(); return; }
+  if (!curPara) newPara();
+  if (!interimEl){
+    interimEl = makeSegEl(es, 'interim');
+    curPara.body.appendChild(interimEl);
+    markCurrent(interimEl);
+  }
+  interimEl.querySelector('.es').textContent = es;
+  if (he) renderHe(interimEl.querySelector('.he'), he, false);
+  scrollDown();
+}
+
+/* throttle אמיתי: יורה בקצב קבוע גם כשהדובר לא עוצר לרגע.
+   (debounce היה מחכה לשקט — ולכן התרגום החי כמעט לא התעדכן) */
+let interimCtrl = null, interimTimer = null, interimPending = null, lastFire = 0;
+function setInterim(es){
+  if (!es){ clearInterim(); interimPending = null; return; }
+  showInterim(es);
+  if (!cfg.interim) return;
+  interimPending = es;
+  if (interimTimer) return;
+  const wait = Math.max(0, cfg.speed - (Date.now() - lastFire));
+  interimTimer = setTimeout(fireInterim, wait);
+}
+function fireInterim(){
+  interimTimer = null;
+  const es = interimPending;
+  if (!es) return;
+  if (es.trim().split(/\s+/).length < 2) return;
+  lastFire = Date.now();
+  if (interimCtrl) interimCtrl.abort();
+  interimCtrl = new AbortController();
+  const mine = es;
+  translate(es, interimCtrl.signal)
+    .then(he => { if (interimPending === mine && interimEl) showInterim(mine, he); })
+    .catch(()=>{});
+}
+
+/* =========================================================
+   זיהוי דיבור
+   ========================================================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec=null, wantRun=false, lastEvent=0, restartCount=0, hardStop=false, netErrors=0;
+let uttCommitted = '';           // מה שכבר הוצג מתוך המשפט המדובר כרגע
+
+const norm = s => String(s||'').replace(/\s+/g,' ').trim();
+
+/* מה שעדיין לא הוצג מתוך המשפט הנוכחי */
+function remainder(full){
+  if (!uttCommitted) return full;
+  if (full.startsWith(uttCommitted)) return full.slice(uttCommitted.length).trim();
+  let i = 0;                                   // כרום תיקן את עצמו — לוקחים תחילית משותפת
+  while (i < full.length && i < uttCommitted.length && full[i] === uttCommitted[i]) i++;
+  return full.slice(i).trim();
+}
+
+/* חיתוך יזום בגבול טבעי, כשהדובר ממשיך בלי הפסקה */
+const CLAUSE = /\s(?=(?:y|e|o|pero|porque|que|cuando|aunque|mientras|además|entonces|para|si|como|con|desde|hasta|and|but|because|that|when|while)\s)/i;
+function forceCommit(pending){
+  if (!pending) return null;
+  const words = pending.split(' ');
+  if (words.length < MAX_UTT_WORDS) return null;
+  const head = words.slice(0, CUT_AT_WORDS).join(' ');
+  const re = new RegExp(CLAUSE.source, 'gi');
+  let best = -1, m;
+  while ((m = re.exec(head)) !== null){
+    if (head.slice(0, m.index).split(' ').length >= 8) best = m.index;
+    if (m.index === re.lastIndex) re.lastIndex++;
+  }
+  return best > 0 ? head.slice(0, best).trim() : head;
+}
+
+const FILE_MODE = location.protocol === 'file:';
+const FIX_HINT = FILE_MODE
+  ? 'נראה שכרום חוסם את המיקרופון כשפותחים קובץ HTML ישירות מהדיסק. <b>סגור את החלון והפעל את START.bat</b> שבאותה תיקייה — זו אותה מערכת בדיוק, בלי שום התקנה.'
+  : 'לחץ על סמל המנעול שליד שורת הכתובת ← “מיקרופון” ← “אפשר”, ואז רענן את הדף (F5).';
+
+function buildRec(){
+  const r = new SR();
+  r.continuous = true; r.interimResults = true; r.maxAlternatives = 1; r.lang = cfg.lang;
+
+  r.onstart = () => { lastEvent = Date.now(); uttCommitted = ''; setStatus('מאזין','on'); };
+
+  r.onresult = handleResult;
+  r.onnomatch = null;
+
+  r.onerror = (e) => {
+    lastEvent = Date.now();
+    const err = e.error;
+    if (err === 'not-allowed' || err === 'service-not-allowed'){
+      hardStop = true; wantRun = false;
+      setStatus('אין הרשאת מיקרופון','err');
+      banner('הדפדפן חסם את המיקרופון. ' + FIX_HINT);
+      updateRunBtn();
+    } else if (err === 'audio-capture'){
+      setStatus('מיקרופון לא נמצא','err');
+      banner('לא נמצא מיקרופון פעיל. בדוק שהוא מחובר ומוגדר כברירת מחדל ב־Windows.');
+      if (cfg.meter){ cfg.meter=false; saveCfg(); syncUI(); stopMeter(); toast('כיביתי את מד עוצמת הקול כדי לשחרר את המיקרופון'); }
+    } else if (err === 'network'){
+      netErrors++;
+      setStatus('בעיית רשת','err');
+      banner(netErrors >= 3 && FILE_MODE ? 'זיהוי הדיבור לא מצליח להתחבר. ' + FIX_HINT
+                                         : 'זיהוי הדיבור דורש אינטרנט. מנסה שוב…');
+    } else if (err !== 'no-speech' && err !== 'aborted'){
+      setStatus('שגיאה: ' + err, 'err');
+    }
+  };
+
+  r.onend = () => {
+    if (!wantRun || hardStop){ setStatus('מושהה'); updateRunBtn(); return; }
+    restartCount++;
+    setStatus(restartCount > 2 ? 'מתחבר מחדש…' : 'מאזין', restartCount > 2 ? 'wait' : 'on');
+    setTimeout(() => { if (wantRun && !hardStop){ try{ r.start(); }catch(e){} } }, Math.min(200*restartCount, 4000));
+  };
+  return r;
+}
+
+/* מטפל בתוצאות הזיהוי. מופרד מ-buildRec כדי שאפשר יהיה לבדוק אותו ישירות. */
+function handleResult(e){
+  lastEvent = Date.now(); restartCount = 0; netErrors = 0;
+  let interim = '';
+  for (let i = e.resultIndex; i < e.results.length; i++){
+    const res = e.results[i];
+    const txt = norm((res[0] && res[0].transcript) || '');
+    if (!txt) continue;
+    if (res.isFinal){
+      interimPending = null;
+      const rest = remainder(txt);
+      if (rest) addSegment(rest);
+      uttCommitted = '';
+    } else interim += txt + ' ';
+  }
+
+  interim = norm(interim);
+  if (!interim){ setInterim(''); return; }
+
+  /* דובר שלא עוצר: לא מחכים שכרום "יסגור" משפט — מקבעים חלק
+     בגבול טבעי וממשיכים, כדי שהמסך ימשיך להתקדם כל הזמן */
+  let pending = remainder(interim);
+  const cut = forceCommit(pending);
+  if (cut){
+    addSegment(cut);
+    uttCommitted = uttCommitted ? uttCommitted + ' ' + cut : cut;
+    pending = remainder(interim);
+  }
+  setInterim(pending);
+}
+
+function startListening(){
+  if (!SR){ banner('הדפדפן הזה לא תומך בזיהוי דיבור. פתח את המערכת ב־<b>Google Chrome</b>.'); return; }
+  hardStop=false; wantRun=true; restartCount=0; netErrors=0;
+  if (!startedAt) startedAt = Date.now();
+  if (!rec) rec = buildRec();
+  rec.lang = cfg.lang;
+  try{ rec.start(); }catch(e){}
+  setStatus('מאזין','on');
+  if (cfg.meter) startMeter();
+  acquireWake();
+  prewarm();
+  updateRunBtn(); banner('');
+}
+function stopListening(){
+  wantRun=false;
+  try{ if (rec) rec.stop(); }catch(e){}
+  setInterim(''); stopMeter(); releaseWake();
+  setStatus('מושהה'); updateRunBtn();
+  saveTranscript(true);
+}
+function updateRunBtn(){
+  const b=$('btnRun');
+  b.textContent = wantRun ? '■ עצור' : '▶ התחל להאזין';
+  b.classList.toggle('on', wantRun);
+}
+
+/* שומר-ראש ליום שלם: אם אין אירועים 25 שניות — אתחול מחדש */
+setInterval(() => {
+  if (!wantRun || hardStop) return;
+  if (Date.now() - lastEvent > IDLE_HINT_MS){ lastEvent = Date.now(); try{ rec.stop(); }catch(e){} }
+}, 5000);
+
+/* מניעת כיבוי מסך במהלך יום שלם */
+let wakeLock = null;
+async function acquireWake(){
+  try{ if ('wakeLock' in navigator && !wakeLock){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } }catch(e){}
+}
+function releaseWake(){ try{ if (wakeLock) wakeLock.release(); }catch(e){} wakeLock = null; }
+document.addEventListener('visibilitychange', () => { if (wantRun && document.visibilityState === 'visible') acquireWake(); });
+
+/* =========================================================
+   מד עוצמת קול
+   ========================================================= */
+let audioCtx=null, analyser=null, micStream=null, meterRAF=null;
+async function startMeter(){
+  const bar = $('meterBar');
+  try{
+    if (!micStream){
+      micStream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false } });
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
+      audioCtx.createMediaStreamSource(micStream).connect(analyser);
+    }
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const loop = () => {
+      analyser.getByteTimeDomainData(data);
+      let peak=0; for (let i=0;i<data.length;i++) peak = Math.max(peak, Math.abs(data[i]-128));
+      bar.style.width = Math.min(100, Math.round(peak/60*100)) + '%';
+      meterRAF = requestAnimationFrame(loop);
+    };
+    cancelAnimationFrame(meterRAF); loop();
+  }catch(e){ bar.style.width='0%'; }
+}
+function stopMeter(){
+  cancelAnimationFrame(meterRAF);
+  $('meterBar').style.width='0%';
+  if (micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+  if (audioCtx){ try{ audioCtx.close(); }catch(e){} audioCtx=null; }
+  analyser=null;
+}
+
+/* =========================================================
+   תמליל — הלקוח בונה את הקבצים, השרת רק כותב אותם
+   ========================================================= */
+function txtDump(){
+  let out = 'תמליל תרגום חי — ספרדית ← עברית\n' + sessionTitle + '\n' +
+            'סה״כ ' + segments.filter(s=>!s.mark).length + ' משפטים\n' +
+            '='.repeat(60) + '\n\n';
+  let p = null;
+  for (const s of segments){
+    if (s.mark){ out += '\n──────── 🔖 סימנייה ' + s.time + ' ────────\n\n'; p = null; continue; }
+    if (s.p !== p){ p = s.p; out += '\n[' + s.time + ']\n'; }
+    out += (s.he || '') + '\n';
+    if (s.es) out += '   ' + s.es + '\n';
+  }
+  return out;
+}
+function htmlDump(){
+  let body = '', p = null, open = false;
+  for (const s of segments){
+    if (s.mark){ if (open){ body += '</section>'; open=false; } body += '<div class="mk">🔖 סימנייה · ' + esc(s.time) + '</div>'; p = null; continue; }
+    if (s.p !== p){ if (open) body += '</section>'; body += '<section><h3>' + esc(s.time) + '</h3>'; open = true; p = s.p; }
+    body += '<p class="he">' + esc(s.he || '') + '</p><p class="es">' + esc(s.es) + '</p>';
+  }
+  if (open) body += '</section>';
+  return '<!doctype html><html lang="he" dir="rtl"><meta charset="utf-8"><title>' + esc(sessionTitle) + '</title>' +
+    '<style>body{font-family:"Segoe UI",Arial,sans-serif;margin:28px auto;max-width:900px;line-height:1.6;color:#111}' +
+    'h1{font-size:22px;margin:0 0 2px}.sub{color:#666;font-size:13px;margin:0 0 22px}' +
+    'section{background:#f7f8fa;border-radius:10px;padding:14px 18px;margin:0 0 18px}' +
+    'h3{margin:0 0 10px;font-size:12px;color:#8a94a4;font-weight:500;letter-spacing:.5px}' +
+    'p.he{font-size:17px;margin:0 0 3px;font-weight:600}' +
+    'p.es{direction:ltr;text-align:right;font-size:13px;color:#7b8798;margin:0 0 14px}' +
+    '.mk{color:#a97a08;font-size:13px;margin:22px 0;text-align:center}' +
+    '@media print{section{background:none;padding:0}p.es{display:none}}</style>' +
+    '<h1>תמליל תרגום חי — ספרדית ← עברית</h1><p class="sub">' + esc(sessionTitle) + ' · ' +
+    segments.filter(s=>!s.mark).length + ' משפטים</p>' + body + '</html>';
+}
+
+async function saveTranscript(force){
+  if (!segments.length) return false;
+  if (!force && (!cfg.autosave || !dirty)) return false;
+  backupLocal();
+  if (MODE !== 'server') return false;
+  try{
+    await fetch('/api/save', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ session: sessionName, txt: txtDump(), html: htmlDump() }) });
+    dirty = false; return true;
+  }catch(e){ return false; }
+}
+setInterval(() => saveTranscript(false), 15000);
+window.addEventListener('beforeunload', () => {
+  backupLocal();
+  if (MODE === 'server'){
+    try{ navigator.sendBeacon('/api/save', new Blob([JSON.stringify({session:sessionName, txt:txtDump(), html:htmlDump()})], {type:'application/json'})); }catch(e){}
+  }
+});
+function backupLocal(){
+  try{ localStorage.setItem('tv-backup', JSON.stringify({ session:sessionName, saved:new Date().toISOString(),
+       lines: segments.slice(-1200).map(s => ({t:s.time, e:s.es, h:s.he, m:s.mark?1:0})) })); }catch(e){}
+}
+function download(name, content, type){
+  const blob = new Blob(['﻿'+content], { type: type+';charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+/* =========================================================
+   מונה זמן ומשפטים
+   ========================================================= */
+function updateStats(){
+  const n = segments.filter(s=>!s.mark).length;
+  let t = '00:00';
+  if (startedAt){
+    const s = Math.floor((Date.now()-startedAt)/1000);
+    t = (s>=3600 ? p2(Math.floor(s/3600))+':' : '') + p2(Math.floor(s/60)%60) + ':' + p2(s%60);
+  }
+  $('stats').textContent = t + ' · ' + n + (lastMs ? ' · ' + lastMs + 'ms' : '');
+}
+setInterval(updateStats, 1000);
+
+/* =========================================================
+   ממשק
+   ========================================================= */
+function syncUI(){
+  document.documentElement.toggleAttribute('data-light', !!cfg.light);
+  document.body.classList.toggle('no-es', !cfg.showEs);
+  document.body.classList.toggle('no-para', !cfg.para);
+  document.documentElement.style.setProperty('--fs', cfg.font+'px');
+  $('setLang').value = cfg.lang;
+  $('setFont').value = cfg.font;
+  $('setSpeed').value = String(cfg.speed);
+  $('setParaGap').value = String(cfg.paraGap);
+  $('setLineLen').value = String(cfg.lineLen);
+  if (window.rerenderAll) rerenderAll();
+  [['setInterim','interim'],['setShowEs','showEs'],['setMeter','meter'],['setAutosave','autosave'],['setLight','light'],['setPara','para']]
+    .forEach(([id,key]) => $(id).classList.toggle('on', !!cfg[key]));
+  $('meterWrap').style.display = cfg.meter ? '' : 'none';
+  if (window.relayout) relayout();
+}
+function bindSwitch(id, key, after){
+  $(id).addEventListener('click', () => { cfg[key] = !cfg[key]; saveCfg(); syncUI(); if (after) after(); });
+}
+bindSwitch('setInterim','interim',()=>{ if(!cfg.interim) clearInterim(); });
+bindSwitch('setShowEs','showEs');
+bindSwitch('setAutosave','autosave');
+bindSwitch('setLight','light');
+bindSwitch('setPara','para');
+bindSwitch('setMeter','meter',()=>{ if (cfg.meter && wantRun) startMeter(); else stopMeter(); });
+
+$('setLang').addEventListener('change', e => {
+  cfg.lang = e.target.value; saveCfg();
+  if (wantRun){ stopListening(); setTimeout(startListening, 300); }
+  toast('שפת המקור: ' + e.target.selectedOptions[0].textContent);
+});
+$('setSpeed').addEventListener('change', e => { cfg.speed = +e.target.value; saveCfg(); });
+$('setParaGap').addEventListener('change', e => { cfg.paraGap = +e.target.value; saveCfg(); });
+$('setLineLen').addEventListener('change', e => { cfg.lineLen = +e.target.value; saveCfg(); syncUI(); });
+let resizeTimer = null;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { rerenderAll(); relayout(); }, 200); });
+$('setFont').addEventListener('input', e => { cfg.font = +e.target.value; saveCfg(); syncUI(); });
+
+$('btnRun').addEventListener('click', () => wantRun ? stopListening() : startListening());
+$('btnMark').addEventListener('click', addMark);
+$('btnFontUp').addEventListener('click', () => { cfg.font = Math.min(86, cfg.font+4); saveCfg(); syncUI(); });
+$('btnFontDown').addEventListener('click', () => { cfg.font = Math.max(20, cfg.font-4); saveCfg(); syncUI(); });
+$('btnGiant').addEventListener('click', toggleGiant);
+$('giantExit').addEventListener('click', toggleGiant);
+/* כל שינוי פריסה משנה את גובה התוכן — צריך להיצמד מחדש לשורה האחרונה */
+function relayout(){ requestAnimationFrame(() => requestAnimationFrame(scrollDown)); }
+function toggleGiant(){ document.body.classList.toggle('giant'); relayout(); }
+
+$('btnSave').addEventListener('click', async () => {
+  if (!segments.length) return toast('אין עדיין מה לשמור');
+  const ok = await saveTranscript(true);
+  if (ok) toast('התמליל נשמר בתיקייה transcripts');
+  else { download(sessionName+'.html', htmlDump(), 'text/html'); toast('התמליל ירד לתיקיית ההורדות'); }
+});
+$('btnSettings').addEventListener('click', () => $('pSettings').classList.add('show'));
+$('btnCloseSettings').addEventListener('click', () => $('pSettings').classList.remove('show'));
+$('btnCheck').addEventListener('click', () => $('pCheck').classList.add('show'));
+$('btnCloseCheck').addEventListener('click', () => { $('pCheck').classList.remove('show'); stopCheckAudio(); });
+$('btnDlTxt').addEventListener('click', () => download(sessionName+'.txt', txtDump(), 'text/plain'));
+$('btnDlHtml').addEventListener('click', () => download(sessionName+'.html', htmlDump(), 'text/html'));
+$('btnClear').addEventListener('click', () => {
+  if (!confirm('לנקות את המסך? התמליל השמור לא יימחק.')) return;
+  segments.length = 0; stream.innerHTML=''; paras = []; curPara = null; interimEl = null;
+  curSegEl = prevSegEl = null; updateStats(); toast('המסך נוקה');
+});
+
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName||'').toLowerCase();
+  if (tag==='input'||tag==='select'||tag==='textarea') return;
+  if (e.key === ' '){ e.preventDefault(); wantRun ? stopListening() : startListening(); }
+  else if (e.key==='g'||e.key==='ג') toggleGiant();
+  else if (e.key==='b'||e.key==='נ') addMark();
+  else if (e.key==='f'||e.key==='כ'){ document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  else if (e.key==='+'||e.key==='=') $('btnFontUp').click();
+  else if (e.key==='-') $('btnFontDown').click();
+  else if (e.key==='Escape'){ document.querySelectorAll('.panel.show').forEach(p=>p.classList.remove('show')); document.body.classList.remove('giant'); relayout(); }
+});
+
+/* =========================================================
+   בדיקת מערכת
+   ========================================================= */
+function mark(id, state, detail){
+  const el = $(id);
+  el.className = 'check' + (state ? ' '+state : '');
+  el.querySelector('.ico').textContent = state==='ok'?'✓':state==='bad'?'✕':state==='run'?'…':'•';
+  if (detail !== undefined) el.querySelector('.det').innerHTML = detail;
+}
+let checkRec=null, checkStream=null, checkCtx=null, checkRAF=null;
+function stopCheckAudio(){
+  cancelAnimationFrame(checkRAF);
+  $('checkMeter').style.width='0%';
+  if (checkStream){ checkStream.getTracks().forEach(t=>t.stop()); checkStream=null; }
+  if (checkCtx){ try{ checkCtx.close(); }catch(e){} checkCtx=null; }
+  if (checkRec){ try{ checkRec.abort(); }catch(e){} checkRec=null; }
+}
+
+$('btnRunCheck').addEventListener('click', async () => {
+  const btn = $('btnRunCheck');
+  btn.disabled = true; btn.textContent = 'בודק…';
+  ['c1','c2','c3','c4','c5'].forEach(c => mark(c,'run',undefined));
+
+  if (MODE === 'server') mark('c1','ok','רץ דרך <b dir="ltr">START.bat</b> (localhost) — המצב המומלץ. הרשאת המיקרופון נשמרת לתמיד והתמלילים נשמרים אוטומטית לדיסק.');
+  else if (FILE_MODE) mark('c1','run','הקובץ נפתח ישירות מהדיסק. אם המיקרופון ייחסם בשלבים הבאים — סגור והפעל את <b dir="ltr">START.bat</b>.');
+  else mark('c1','ok','רץ כאתר (' + esc(location.origin) + ') — הרשאת המיקרופון נשמרת. תמלילים נשמרים דרך כפתור ההורדה.');
+
+  const ver = (navigator.userAgent.match(/(Edg|Chrome)\/[\d.]+/)||[''])[0];
+  if (SR) mark('c2','ok','זיהוי דיבור נתמך · ' + (ver || navigator.userAgent.slice(0,60)));
+  else mark('c2','bad','הדפדפן הזה לא תומך בזיהוי דיבור. פתח את המערכת ב־<b>Google Chrome</b>.');
+
+  try{
+    const probe = ['Buenos días, bienvenidos a la conferencia.',
+                   'El informe anual se publicará la próxima semana.',
+                   'Vamos a revisar los resultados del segundo trimestre.'];
+    const times = []; let sample = '';
+    for (const s of probe){ const t0 = performance.now(); const he = await translate(s + ' '); times.push(Math.round(performance.now()-t0)); if (!sample) sample = he; }
+    const avg = Math.round(times.reduce((a,b)=>a+b,0)/times.length);
+    mark('c3', avg < 900 ? 'ok' : 'run',
+      'ממוצע ' + avg + ' מ״ש לתרגום (' + times.join(', ') + ')<br>' +
+      '<span dir="ltr">“Buenos días, bienvenidos a la conferencia.”</span> ← <b>' + esc(sample) + '</b>' +
+      (avg >= 900 ? '<br>הרשת איטית יחסית. בכנס — נסה Hotspot מהטלפון.' : ''));
+  }catch(e){
+    mark('c3','bad','שירות התרגום לא זמין — בדוק חיבור אינטרנט. ('+esc(e.message)+')');
+  }
+
+  let micOk = false;
+  try{
+    checkStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    checkCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const an = checkCtx.createAnalyser(); an.fftSize = 512;
+    checkCtx.createMediaStreamSource(checkStream).connect(an);
+    const data = new Uint8Array(an.frequencyBinCount);
+    const loop = () => {
+      an.getByteTimeDomainData(data);
+      let peak=0; for (let i=0;i<data.length;i++) peak = Math.max(peak, Math.abs(data[i]-128));
+      $('checkMeter').style.width = Math.min(100, Math.round(peak/60*100))+'%';
+      checkRAF = requestAnimationFrame(loop);
+    };
+    loop();
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind==='audioinput');
+    micOk = true;
+    mark('c4','ok','המיקרופון פעיל: <b dir="auto">'+esc((devs[0]&&devs[0].label)||'ברירת מחדל')+'</b><br>דבר עכשיו — הפס למטה צריך לזוז.');
+  }catch(e){
+    mark('c4','bad','אין גישה למיקרופון ('+esc(e.name)+').<br>'+FIX_HINT);
+  }
+
+  if (!SR || !micOk){
+    mark('c5','bad','לא ניתן לבדוק ללא מיקרופון וזיהוי דיבור.');
+    btn.disabled=false; btn.textContent='הרץ בדיקה'; return;
+  }
+  mark('c5','run','<b>דבר עכשיו בספרדית…</b> (10 שניות)');
+  await new Promise(resolve => {
+    let heard='', hadError='';
+    checkRec = new SR();
+    checkRec.lang = cfg.lang; checkRec.continuous = true; checkRec.interimResults = true;
+    checkRec.onresult = e => {
+      let s=''; for (let i=0;i<e.results.length;i++) s += e.results[i][0].transcript + ' ';
+      heard = s.trim();
+      mark('c5','run','שומע: <span dir="ltr">'+esc(heard)+'</span>');
+    };
+    checkRec.onerror = e => { hadError = e.error; };
+    try{ checkRec.start(); }catch(e){ hadError = String(e); }
+    setTimeout(async () => {
+      try{ checkRec.stop(); }catch(e){}
+      if (heard){
+        let he=''; try{ he = await translate(heard); }catch(e){}
+        mark('c5','ok','זוהה: <span dir="ltr">'+esc(heard)+'</span><br>תורגם: <b>'+esc(he||'—')+'</b><br>הכול מוכן לכנס. ✔');
+        if (MODE !== 'server' && FILE_MODE) mark('c1','ok','עובד גם ישירות מהדיסק — לא צריך את START.bat במחשב הזה.');
+      } else if (hadError === 'network' || hadError === 'not-allowed' || hadError === 'service-not-allowed'){
+        mark('c5','bad','זיהוי הדיבור נחסם ('+esc(hadError)+').<br>'+FIX_HINT);
+      } else {
+        mark('c5','bad','לא זוהה דיבור. ודא שדיברת בשפה שנבחרה בהגדרות, שהמיקרופון קרוב, ושיש אינטרנט.');
+      }
+      resolve();
+    }, 10000);
+  });
+
+  stopCheckAudio();
+  btn.disabled=false; btn.textContent='הרץ בדיקה שוב';
+});
+
+/* =========================================================
+   אתחול
+   ========================================================= */
+(async function init(){
+  syncUI(); updateRunBtn(); setStatus('מוכן'); updateStats();
+  if (!SR) banner('הדפדפן הזה לא תומך בזיהוי דיבור. פתח את המערכת ב־<b>Google Chrome</b>.');
+  if (location.protocol.startsWith('http')){
+    try{
+      const r = await fetch('api/health', { cache:'no-store' });
+      if (r.ok && (await r.json()).ok) MODE = 'server';
+    }catch(e){}
+  }
+  if (MODE !== 'server'){
+    $('autosaveSub').textContent = 'ללא השרת המקומי התמליל נשמר בזיכרון הדפדפן — כפתור “שמור” מוריד אותו כקובץ.';
+  }
+  prewarm();
+})();
+</script>
+</body>
+</html>
