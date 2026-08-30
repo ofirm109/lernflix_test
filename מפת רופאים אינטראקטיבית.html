@@ -785,11 +785,11 @@ select:focus,input:focus{outline:2px solid #99f6e4;border-color:var(--accent)}
     <div class="sec">
       <h3>מפת רקע</h3>
       <select id="basemap">
-        <option value="carto_light">Carto Light (בהיר)</option>
-        <option value="carto_voyager">Carto Voyager</option>
+        <option value="gray_light">אפור בהיר (Esri)</option>
+        <option value="streets">מפת רחובות (Esri)</option>
         <option value="osm">OpenStreetMap</option>
         <option value="esri_sat">תצלום אוויר (Esri)</option>
-        <option value="carto_dark">Carto Dark (כהה)</option>
+        <option value="gray_dark">אפור כהה (Esri)</option>
         <option value="none">ללא רקע</option>
       </select>
     </div>
@@ -941,14 +941,15 @@ var map = L.map('map',{ preferCanvas:true, zoomControl:false, minZoom:6, maxZoom
 L.control.zoom({position:'topleft'}).addTo(map);
 L.control.scale({position:'bottomleft',imperial:false,metric:true}).addTo(map);
 
+/* כל השירותים כאן חינמיים וללא מפתח API (CARTO הוסרה — היא מטביעה סימן מים) */
 var BASEMAPS = {
-  carto_light:{u:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-     a:'© OpenStreetMap, © CARTO', sub:'abcd', max:20},
-  carto_voyager:{u:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-     a:'© OpenStreetMap, © CARTO', sub:'abcd', max:20},
-  carto_dark:{u:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-     a:'© OpenStreetMap, © CARTO', sub:'abcd', max:20},
-  osm:{u:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', a:'© OpenStreetMap contributors', sub:'abc', max:19},
+  gray_light:{u:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+     a:'Esri, HERE, Garmin, © OpenStreetMap contributors', sub:'', max:16},
+  streets:{u:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+     a:'Esri, HERE, Garmin, © OpenStreetMap contributors', sub:'', max:19},
+  gray_dark:{u:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+     a:'Esri, HERE, Garmin, © OpenStreetMap contributors', sub:'', max:16},
+  osm:{u:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', a:'© OpenStreetMap contributors', sub:'', max:19},
   esri_sat:{u:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
      a:'Esri, Maxar, Earthstar Geographics', sub:'', max:19}
 };
@@ -1327,7 +1328,7 @@ function start(){
   defs.forEach(function(d){ byId[d.id]=d; });
 
   buildLayerUI();
-  setBasemap('carto_light');
+  setBasemap('gray_light');
   toggle('sa_age65',true);
   toggle('doctors',true);
   fillFilters(srv,jExp,jHmo);
@@ -1578,7 +1579,7 @@ document.getElementById('reset').addEventListener('click',function(){
   document.getElementById('fExp').value=''; document.getElementById('fHmo').value='';
   document.getElementById('fExp').dispatchEvent(new Event('change'));
   toggle('sa_age65',true); toggle('doctors',true);
-  document.getElementById('basemap').value='carto_light'; setBasemap('carto_light');
+  document.getElementById('basemap').value='gray_light'; setBasemap('gray_light');
   map.fitBounds([[29.45,34.2],[33.35,35.95]]);
 });
 var panel=document.getElementById('panel'), opener=document.getElementById('opener');
