@@ -1,0 +1,141 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "admins": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "courses": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+    },
+    "sessions": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+    },
+    "units": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+    },
+    "items": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+    },
+    "images": {
+      "$id": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+      }
+    },
+    "hostpack": {
+      "$key": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+      }
+    },
+    "secret": {
+      "$pin": {
+        ".read": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && root.child('games').child($pin).child('meta/host').val() === auth.uid)",
+        ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && !data.exists() && newData.parent().parent().child('games').child($pin).child('meta/host').val() === auth.uid && root.child('hostpack').child(newData.child('key').val()).exists() && root.child('hostpack').child(newData.child('key').val()).child('unitId').val() === newData.parent().parent().child('games').child($pin).child('meta/unitId').val())"
+      }
+    },
+    "live": {
+      "$unitId": {
+        ".read": "auth != null",
+        ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && newData.isString() && newData.parent().parent().child('games').child(newData.val()).child('meta/host').val() === auth.uid && newData.parent().parent().child('games').child(newData.val()).child('meta/unitId').val() === $unitId)"
+      }
+    },
+    "games": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".indexOn": [
+        "meta/created"
+      ],
+      "$pin": {
+        ".read": "auth != null",
+        ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && data.child('meta/host').val() === auth.uid) || (auth != null && !data.exists() && newData.child('meta/host').val() === auth.uid && newData.parent().parent().child('secret').child($pin).child('key').exists())",
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('games').child($pin).child('meta').exists() && !root.child('games').child($pin).child('kicked').child($uid).exists()",
+            ".validate": "newData.hasChild('name')",
+            "name": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24"
+            },
+            "joined": {
+              ".validate": "newData.isNumber()"
+            },
+            "online": {
+              ".validate": "newData.isBoolean()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "answers": {
+          "$i": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('games').child($pin).child('state/phase').val() === 'question' && root.child('games').child($pin).child('players').child(auth.uid).child('name').exists()",
+              ".validate": "newData.hasChildren(['c', 'at'])",
+              "c": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3"
+              },
+              "at": {
+                ".validate": "newData.val() === now"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "ratings": {
+          "$i": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && root.child('games').child($pin).child('state/phase').val() === 'activity' && root.child('games').child($pin).child('state/closed').val() !== true && root.child('games').child($pin).child('players').child(auth.uid).child('name').exists()",
+              ".validate": "newData.hasChildren(['r', 'at'])",
+              "r": {
+                "$k": {
+                  ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 10"
+                }
+              },
+              "at": {
+                ".validate": "newData.val() === now"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "subs": {
+          "$i": {
+            "$key": {
+              ".write": "auth != null && !data.exists() && root.child('games').child($pin).child('state/phase').val() === 'activity' && root.child('games').child($pin).child('state/closed').val() !== true && root.child('games').child($pin).child('players').child(auth.uid).child('name').exists()",
+              ".validate": "newData.hasChildren(['t', 'at'])",
+              "t": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 300"
+              },
+              "at": {
+                ".validate": "newData.val() === now"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "done": {
+          "$i": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && root.child('games').child($pin).child('state/phase').val() === 'activity' && root.child('games').child($pin).child('state/closed').val() !== true",
+              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 10"
+            }
+          }
+        }
+      }
+    }
+  }
+}
