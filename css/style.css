@@ -517,19 +517,24 @@ body.board { overflow: hidden; height: 100vh; background: var(--bg); }
 .bubble:hover { opacity: .45; }
 @keyframes bub-in { 0% { opacity: 0; transform: scale(.6) translateY(20px); } 70% { transform: scale(1.03); } }
 
-.ratings { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.6vw; align-content: center; overflow: auto; }
-.rate-card { padding: 2.4vh 2vw; display: flex; flex-direction: column; gap: 1.6vh; }
-.rate-card .top { display: flex; align-items: flex-end; gap: 1vw; }
-.rate-card .nm { flex: 1; font-weight: 800; color: var(--navy); font-size: clamp(18px, 2.8vh, 34px); line-height: 1.2; }
-.rate-card .avg { font-size: clamp(40px, 8vh, 96px); font-weight: 800; color: var(--violet); line-height: .9; font-variant-numeric: tabular-nums; }
-.rate-card .avg small { font-size: .32em; color: var(--muted); font-weight: 700; }
-.hist { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; align-items: end; height: 12vh; }
-.hist div { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: 4px; }
-.hist i { display: block; width: 100%; background: linear-gradient(180deg, var(--violet), var(--blue)); border-radius: 6px 6px 2px 2px; min-height: 3px; transition: height .7s var(--ease); }
-.hist div.zero i { background: var(--border); }
-.hist span { font-weight: 700; color: var(--muted); font-size: clamp(12px, 1.6vh, 18px); }
-.scale-bar { position: relative; height: 12px; border-radius: 99px; background: var(--bg); }
-.scale-bar i { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: 99px; background: linear-gradient(90deg, var(--blue), var(--violet)); transition: width .8s var(--ease); }
+/* דירוג 1–10: הקריטריונים אחד מתחת לשני, עם עקומת התפלגות וממוצע על הציר */
+.rate-panel { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 2.6vh 2.6vw 2vh; }
+.rate-rows { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; gap: 1vh; }
+.rate-row { flex: 0 1 15vh; min-height: 0; display: flex; flex-direction: column; }
+.rr-name { flex: none; font-weight: 700; color: var(--ink); font-size: clamp(17px, 2.8vh, 32px); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: -.2em; position: relative; z-index: 1; }
+.rr-plot { flex: 1; min-height: 3.2vh; position: relative; margin-inline: calc(var(--knob) / 2); --knob: clamp(30px, 4.6vh, 52px); }
+.rr-curve { position: absolute; inset-inline: 0; top: 0; bottom: calc(var(--knob) / 2); width: 100%; height: calc(100% - var(--knob) / 2); overflow: visible; }
+.rr-curve .a { fill: color-mix(in srgb, var(--rc) 24%, transparent); }
+.rr-curve .l { fill: none; stroke: color-mix(in srgb, var(--rc) 45%, transparent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.rr-track { position: absolute; inset-inline: 0; bottom: calc(var(--knob) / 2 - 4px); height: 8px; border-radius: 99px; background: #E5E9F0; }
+.rr-fill { position: absolute; right: 0; top: 0; bottom: 0; width: 0; border-radius: 99px; background: var(--rc); transition: width .8s var(--ease); }
+.rr-knob { position: absolute; top: 50%; left: 100%; width: var(--knob); height: var(--knob); transform: translate(-50%, -50%); border-radius: 50%; background: var(--rc); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: max(11px, calc(var(--knob) * .4)); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 3px #fff, 0 4px 12px rgba(32, 44, 96, .25); transition: left .8s var(--ease); }
+.rr-axis { flex: none; display: flex; justify-content: space-between; margin-top: 1.6vh; padding-top: 1.2vh; border-top: 1px solid var(--border); color: var(--muted); font-weight: 700; font-size: clamp(14px, 2vh, 22px); }
+.rr-wait { color: var(--muted); font-weight: 600; opacity: .8; }
+.rate-panel.n5 .rr-name, .rate-panel.n6 .rr-name { font-size: clamp(15px, 2.3vh, 26px); -webkit-line-clamp: 1; }
+.rate-panel.n7 .rr-name, .rate-panel.n8 .rr-name { font-size: clamp(14px, 2vh, 22px); -webkit-line-clamp: 1; }
+.rate-panel.n5 .rr-plot, .rate-panel.n6 .rr-plot { --knob: clamp(26px, 3.8vh, 42px); }
+.rate-panel.n7 .rr-plot, .rate-panel.n8 .rr-plot { --knob: clamp(24px, 3.2vh, 36px); }
 
 .b-error { margin: auto; text-align: center; max-width: 640px; padding: 40px; }
 .b-error h2 { font-size: 30px; margin-bottom: 10px; }

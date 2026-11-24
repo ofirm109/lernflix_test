@@ -807,44 +807,100 @@ function bubblesView(it, i) {
   return view;
 }
 
+/** צבעים לקריטריונים (מתוך פלטת המותג) */
+const RATE_COLORS = ['#6236FF', '#0090FF', '#202C60', '#F2784B', '#0E8F9B', '#B0307F', '#B7791F', '#32A9E0'];
+const KDE_N = 91; // נקודות דגימה בין 1 ל-10
+/** עקומת התפלגות חלקה (KDE) של הדירוגים, מנורמלת ל-0..1 */
+function densityOf(vals) {
+  const out = new Array(KDE_N).fill(0);
+  if (!vals.length) return out;
+  const bw = 0.55;
+  for (let k = 0; k < KDE_N; k++) {
+    const x = 1 + (9 * k) / (KDE_N - 1);
+    let s = 0;
+    for (const v of vals) { const z = (x - v) / bw; s += Math.exp(-0.5 * z * z); }
+    out[k] = s;
+  }
+  const mx = Math.max(...out) || 1;
+  return out.map((y) => y / mx);
+}
+/** מסלול SVG לעקומה. בעברית 1 (נמוך) מימין ו-10 (גבוה) משמאל – כמו בטלפון */
+function curvePaths(ys) {
+  const pts = ys.map((y, k) => `${(1000 - (1000 * k) / (KDE_N - 1)).toFixed(1)},${(100 - y * 94).toFixed(2)}`);
+  return { area: `M1000,100 L${pts.join(' L')} L0,100 Z`, line: `M${pts.join(' L')}` };
+}
+
 function ratingView(it, i) {
   const cb = countBox('דירגו');
   const crit = toArray(it.criteria);
-  const cards = crit.map((name) => {
-    const avg = h('div', { class: 'avg' }, '–');
-    const scale = h('i', { style: { width: '0%' } });
-    const cols = Array.from({ length: 10 }, (_, k) => {
-      const bar = h('i', { style: { height: '0%' } });
-      const d = h('div', { class: 'zero' }, bar, h('span', null, String(k + 1)));
-      d.bar = bar;
-      return d;
-    });
-    const el = h('div', { class: 'card rate-card' },
-      h('div', { class: 'top' }, h('div', { class: 'nm' }, name), avg),
-      h('div', { class: 'scale-bar' }, scale),
-      h('div', { class: 'hist' }, cols));
-    return { el, avg, scale, cols };
+  const NS = 'http://www.w3.org/2000/svg';
+  const rows = crit.map((name, k) => {
+    const color = RATE_COLORS[k % RATE_COLORS.length];
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 1000 100');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('class', 'rr-curve');
+    svg.setAttribute('aria-hidden', 'true');
+    const area = document.createElementNS(NS, 'path');
+    area.setAttribute('class', 'a');
+    const line = document.createElementNS(NS, 'path');
+    line.setAttribute('class', 'l');
+    svg.append(area, line);
+    const fill = h('i', { class: 'rr-fill' });
+    const knob = h('b', { class: 'rr-knob', hidden: true }, '');
+    const el = h('div', { class: 'rate-row', style: `--rc:${color}` },
+      h('div', { class: 'rr-name' }, name),
+      h('div', { class: 'rr-plot' }, svg, h('div', { class: 'rr-track' }, fill, knob)));
+    const row = { el, area, line, fill, knob, cur: new Array(KDE_N).fill(0), anim: 0 };
+    const p0 = curvePaths(row.cur);
+    area.setAttribute('d', p0.area);
+    line.setAttribute('d', p0.line);
+    return row;
   });
+  const tween = (row, target) => {
+    cancelAnimationFrame(row.anim);
+    const from = row.cur.slice();
+    const t0 = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / 700);
+      const e = 1 - Math.pow(1 - t, 3);
+      row.cur = from.map((y, k) => y + (target[k] - y) * e);
+      const p = curvePaths(row.cur);
+      row.area.setAttribute('d', p.area);
+      row.line.setAttribute('d', p.line);
+      if (t < 1) row.anim = requestAnimationFrame(step);
+    };
+    row.anim = requestAnimationFrame(step);
+  };
+  const waitHint = h('span', { class: 'rr-wait' }, 'מחכים לדירוגים הראשונים…');
+  const panel = h('div', { class: 'card rate-panel n' + Math.min(rows.length, 8) },
+    h('div', { class: 'rate-rows' }, rows.map((r) => r.el)),
+    h('div', { class: 'rr-axis' }, h('span', null, '1 – נמוך'), waitHint, h('span', null, '10 – גבוה')));
   const view = h('div', { class: 'phase-in', style: { display: 'flex', flexDirection: 'column', height: '100%' } },
     actHead(it, cb),
-    h('div', { class: 'act-body' }, h('div', { class: 'ratings' }, cards.map((c) => c.el))));
+    h('div', { class: 'act-body' }, panel));
   let nRates = null;
   G.phaseUnsub.push(store.on(`games/${pin}/ratings/${i}`, (v) => {
-    const rows = Object.values(v || {}).map((x) => toArray(x && x.r));
-    if (nRates !== null && rows.length > nRates) sfx('pop', null, 120);
-    nRates = rows.length;
-    cb.set(rows.length);
-    cards.forEach((c, k) => {
-      const vals = rows.map((r) => Number(r[k])).filter((n) => n >= 1 && n <= 10);
+    const all = Object.values(v || {}).map((x) => toArray(x && x.r));
+    if (nRates !== null && all.length > nRates) sfx('pop', null, 120);
+    nRates = all.length;
+    cb.set(all.length);
+    waitHint.hidden = all.length > 0;
+    rows.forEach((row, k) => {
+      const vals = all.map((r) => Number(r[k])).filter((n) => n >= 1 && n <= 10);
+      const a = vals.length ? vals.reduce((s, n) => s + n, 0) / vals.length : null;
+      const frac = a === null ? 0 : (a - 1) / 9;
+      row.fill.style.width = frac * 100 + '%';
+      row.knob.hidden = a === null;
+      row.knob.style.left = (1 - frac) * 100 + '%';
+      row.knob.textContent = a === null ? '' : a.toFixed(1);
       const hist = Array(10).fill(0);
       vals.forEach((n) => { hist[n - 1]++; });
-      const mx = Math.max(1, ...hist);
-      const a = vals.length ? vals.reduce((s, n) => s + n, 0) / vals.length : null;
-      c.avg.replaceChildren(a === null ? '–' : a.toFixed(1), h('small', null, ' / 10'));
-      c.scale.style.width = a === null ? '0%' : (a / 10) * 100 + '%';
-      c.cols.forEach((d, j) => { d.bar.style.height = (hist[j] / mx) * 100 + '%'; d.classList.toggle('zero', !hist[j]); d.title = `${hist[j]} דירגו ${j + 1}`; });
+      row.el.title = vals.length ? `ממוצע ${a.toFixed(1)} · ${vals.length} דירוגים · ` + hist.map((c, j) => `${j + 1}: ${c}`).join(', ') : 'עדיין אין דירוגים';
+      tween(row, densityOf(vals));
     });
   }));
+  G.phaseUnsub.push(() => rows.forEach((r) => cancelAnimationFrame(r.anim)));
   return view;
 }
 
