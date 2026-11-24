@@ -2,7 +2,7 @@
 import { store, friendlyError } from './store.js';
 import {
   h, icon, shape, TYPES, newItem, toArray, normItem, itemProblems, uid8, toast, confirmDialog, copyText, pageUrl,
-  demoBanner, logo, OPT_NAMES, fmt, lightbox, randomKey, prepareItem,
+  demoBanner, logo, OPT_NAMES, MAX_OPTIONS, fmt, lightbox, randomKey, prepareItem,
 } from './common.js';
 
 const app = document.getElementById('app');
@@ -717,7 +717,7 @@ function typeFields(it, changed) {
     return h('div', null,
       h('div', { class: 'opts' + (it.options.some((o) => o.length > 100 || o.includes('\n')) ? ' one-col' : '') }, it.options.map(optRow)),
       h('div', { class: 'row wrap', style: { marginTop: '10px' } },
-        it.options.length < 4 ? h('button', { class: 'btn btn-soft btn-sm', onclick: () => { it.options.push(''); save(); rerenderCard(it); } }, icon('plus'), 'הוספת תשובה') : null,
+        it.options.length < MAX_OPTIONS ? h('button', { class: 'btn btn-soft btn-sm', onclick: () => { it.options.push(''); save(); rerenderCard(it); } }, icon('plus'), `הוספת תשובה (עד ${MAX_OPTIONS})`) : null,
         h('button', { class: 'btn btn-soft btn-sm', onclick: () => { it.options = ['נכון', 'לא נכון']; it.correct = []; save(); rerenderCard(it); } }, 'נכון / לא נכון')),
       h('div', { class: 'item-settings' },
         selectField('זמן לתשובה', it.time, [[5, '5 שניות'], [10, '10 שניות'], [15, '15 שניות'], [20, '20 שניות'], [30, '30 שניות'], [45, '45 שניות'], [60, 'דקה'], [90, 'דקה וחצי'], [120, '2 דקות']], (v) => { it.time = v; changed(); }),

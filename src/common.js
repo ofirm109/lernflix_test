@@ -80,6 +80,7 @@ export const ICONS = {
   refresh: S('<path d="M20 11a8 8 0 0 0-14.6-4.5M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5M20 20v-4h-4"/>'),
   edit: S('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'),
   image: S('<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5.5-5.5L5 20"/>'),
+  download: S('<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>'),
   sparkle: S('<path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/>'),
 };
 
@@ -89,13 +90,17 @@ export const SHAPES = [
   '<svg class="shape" viewBox="0 0 40 40"><path d="M20 3 L37.5 35 H2.5 Z"/></svg>',
   '<svg class="shape" viewBox="0 0 40 40"><rect x="4" y="4" width="32" height="32" rx="3"/></svg>',
   '<svg class="shape" viewBox="0 0 40 40"><path d="M20 2 L38 20 L20 38 L2 20 Z"/></svg>',
+  '<svg class="shape" viewBox="0 0 40 40"><path d="M20 2.5l5.1 11.2 12.2 1.3-9.1 8.3 2.6 12-10.8-6.2-10.8 6.2 2.6-12-9.1-8.3 12.2-1.3z"/></svg>',
+  '<svg class="shape" viewBox="0 0 40 40"><path d="M11 4h18l9 16-9 16H11L2 20z"/></svg>',
+  '<svg class="shape" viewBox="0 0 40 40"><path d="M20 2.5l17.5 12.7-6.7 20.6H9.2L2.5 15.2z"/></svg>',
 ];
 export function shape(i) {
   const s = document.createElement('span');
-  s.innerHTML = SHAPES[i % 4];
+  s.innerHTML = SHAPES[i % SHAPES.length];
   return s.firstElementChild;
 }
-export const OPT_NAMES = ['עיגול', 'משולש', 'ריבוע', 'מעוין'];
+export const OPT_NAMES = ['עיגול', 'משולש', 'ריבוע', 'מעוין', 'כוכב', 'משושה', 'מחומש'];
+export const MAX_OPTIONS = 7;
 
 // סוגי פריטים
 export const TYPES = {

@@ -80,7 +80,7 @@
               ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('games').child($pin).child('state/phase').val() === 'question' && root.child('games').child($pin).child('players').child(auth.uid).child('name').exists()",
               ".validate": "newData.hasChildren(['c', 'at'])",
               "c": {
-                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3"
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 6"
               },
               "at": {
                 ".validate": "newData.val() === now"

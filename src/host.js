@@ -3,7 +3,7 @@ import qrcode from 'qrcode-generator';
 import { store, friendlyError } from './store.js';
 import {
   h, icon, shape, TYPES, toArray, prepareItem, itemProblems, publicItem, calcPoints, normWord, genPin, fmt, pageUrl,
-  baseDisplayUrl, confirmDialog, demoBanner, logo, qrSvg, medalSvg, NEXT_KEYS, isLong, fitText, fitGroup, fitBalanced, lightbox,
+  baseDisplayUrl, confirmDialog, demoBanner, logo, qrSvg, medalSvg, NEXT_KEYS, isLong, fitText, fitGroup, fitBalanced, lightbox, toast,
 } from './common.js';
 import { renderCloud } from './wordcloud.js';
 import { installUnlock, unlock, sfx, music, setMuted, isMuted, isLocked, onSoundChange, consumeGestureUnlock } from './sound.js';
@@ -18,7 +18,7 @@ let pin = params.get('game');
 const G = {
   meta: null, items: [], state: null, key: null, players: {}, scores: {},
   phaseUnsub: [], timer: null, ending: false, lastAdvance: 0, hidden: new Set(), chips: new Map(),
-  images: {}, fits: [],
+  images: {}, fits: [], results: {}, lastBack: 0,
 };
 
 /** טעינת התמונות של הפריטים (רק ללוח) */
@@ -105,6 +105,7 @@ function startBoard() {
     joinBoxEl,
     h('div', { class: 'tools' },
       soundBtn(),
+      h('button', { class: 'btn btn-icon', title: 'ייצוא התוצאות עד עכשיו לאקסל', onclick: exportExcel }, icon('download')),
       h('button', { class: 'btn btn-icon', title: 'מסך מלא (F)', onclick: toggleFull }, icon('full')),
       store.isAdmin() ? h('a', { class: 'btn btn-icon', title: 'חזרה לעורך', href: 'editor.html#u=' + encodeURIComponent(unitId) }, icon('edit')) : null));
   stageEl = h('main', { class: 'b-stage' });
@@ -116,9 +117,11 @@ function startBoard() {
   store.on(`games/${pin}/state`, onState);
   store.on(`games/${pin}/players`, (v) => { G.players = v || {}; onPlayers(); });
   store.on(`games/${pin}/scores`, (v) => { G.scores = v || {}; });
+  store.on(`games/${pin}/results`, (v) => { G.results = v || {}; });
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, select, .modal')) return;
     if (NEXT_KEYS.has(e.key)) { e.preventDefault(); advance(); }
+    else if (e.key === 'PageUp' || e.key === 'Backspace') { e.preventDefault(); goBack(); }
     else if (e.key === 'f' || e.key === 'F' || e.key === 'כ') toggleFull();
     else if (e.key === 'm' || e.key === 'M' || e.key === 'צ') setMuted(!isMuted());
   });
@@ -149,6 +152,47 @@ function soundBtn() {
   upd();
   return h('div', { class: 'row', style: { gap: '6px' } }, tip, btn);
 }
+// ---------------------------------------------------------------- ייצוא לאקסל
+function loadExportLib() {
+  if (window.LiveQuizExport) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'js/export.js';
+    sc.onload = () => res();
+    sc.onerror = () => rej(new Error('network'));
+    document.head.appendChild(sc);
+  });
+}
+async function exportExcel() {
+  const btn = document.getElementById('export');
+  const oldTxt = btn && btn.innerHTML;
+  if (btn) { btn.disabled = true; btn.textContent = 'מכינים את הקובץ…'; }
+  try {
+    await loadExportLib();
+    const g = (await store.get(`games/${pin}`)) || {};
+    const buf = await window.LiveQuizExport.buildWorkbook({
+      title: G.meta.title, pin, created: g.meta && g.meta.created, items: G.items,
+      players: g.players, scores: g.scores, answers: g.answers, results: g.results, subs: g.subs, ratings: g.ratings,
+    });
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const d = new Date();
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const name = `תוצאות - ${(G.meta.title || 'משחק').replace(/[\\/:*?"<>|]/g, ' ').trim()} - ${date}.xlsx`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast('קובץ האקסל ירד למחשב', 'ok');
+  } catch (e) {
+    console.error(e);
+    toast('הייצוא נכשל – ' + friendlyError(e), 'bad');
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = oldTxt; }
+}
+
 function pinFmt(p) { return String(p).replace(/(\d{3})(\d{3})/, '$1 $2'); }
 function toggleFull() {
   if (document.fullscreenElement) document.exitFullscreen();
@@ -240,7 +284,7 @@ function nextLabel() {
   const nextKind = G.items[i + 1] && G.items[i + 1].type;
   const toNext = isLast ? (G.meta.hasQuiz ? 'לתוצאות הסופיות' : 'לסיום') : nextKind === 'quiz' ? 'לשאלה הבאה' : 'לפעילות הבאה';
   switch (st.phase) {
-    case 'lobby': return 'התחלת המשחק';
+    case 'lobby': return Object.keys(G.results || {}).length ? 'המשך המשחק' : 'התחלת המשחק';
     case 'question': return 'חשיפת התשובה';
     case 'reveal': return isLast ? 'לתוצאות הסופיות' : (G.items[i].points === 0 ? toNext : 'לטבלת המובילים');
     case 'leaderboard': return toNext;
@@ -269,7 +313,8 @@ function renderFoot() {
   }
   if (st.phase === 'end') {
     secondary.append(
-      h('a', { class: 'btn btn-primary btn-lg', href: pageUrl('host.html', { k: hostKey }) }, icon('refresh'), 'משחק חדש עם אותה יחידה'),
+      h('button', { class: 'btn btn-blue btn-lg', id: 'export', onclick: exportExcel }, icon('download'), 'ייצוא התוצאות לאקסל'),
+      h('a', { class: 'btn btn-ghost btn-lg', href: pageUrl('host.html', { k: hostKey }) }, icon('refresh'), 'משחק חדש'),
       store.isAdmin() ? h('a', { class: 'btn btn-ghost btn-lg', href: 'editor.html#u=' + encodeURIComponent(unitId) }, icon('edit'), 'חזרה לעורך') : '');
   }
   const kids = [
@@ -277,6 +322,10 @@ function renderFoot() {
     secondary,
     label ? h('span', { class: 'hint-k' }, 'אפשר גם ', h('kbd', null, 'רווח'), ' או שלט מצגות') : h('span', { class: 'grow' }),
   ];
+  if (st.phase !== 'lobby') {
+    kids.push(h('button', { class: 'btn btn-ghost back-btn', onclick: goBack, id: 'back', title: 'חזרה לשלב הקודם (PageUp)' },
+      icon('arrowRight', 'arr'), st.phase === 'question' ? 'ביטול השאלה' : 'הקודם'));
+  }
   if (label) {
     kids.push(h('button', { class: 'btn btn-primary next-btn' + (st.phase === 'lobby' && playerCount() > 0 ? ' pulse' : ''), onclick: advance, id: 'next' },
       label, icon('arrowLeft', 'arr')));
@@ -315,12 +364,72 @@ async function goTo(i) {
   const pub = publicItem(it);
   if (!G.images[i]) { delete pub.hasImage; delete pub.imgPhone; }
   const base = { index: i, item: pub, qNo: quizIdx.indexOf(i) + 1, qTotal: quizIdx.length };
+  if (it.type === 'quiz' && G.results[i]) {
+    // שאלה שכבר נשאלה – מציגים את התוצאות שנשמרו (לא שואלים מחדש)
+    return showReveal(i);
+  }
   if (it.type === 'quiz') {
     G.localStart = store.now();
     await store.set(`games/${pin}/state`, { ...base, phase: 'question', startedAt: store.TS });
   } else {
     await store.set(`games/${pin}/state`, { ...base, phase: 'activity', closed: false });
   }
+}
+
+function baseFor(i) {
+  const it = G.items[i];
+  const quizIdx = G.items.map((x, j) => (x.type === 'quiz' ? j : -1)).filter((j) => j >= 0);
+  const pub = publicItem(it);
+  if (!G.images[i]) { delete pub.hasImage; delete pub.imgPhone; }
+  return { index: i, item: pub, qNo: quizIdx.indexOf(i) + 1, qTotal: quizIdx.length };
+}
+async function showReveal(i) {
+  const r = G.results[i] || {};
+  await store.set(`games/${pin}/state`, {
+    ...baseFor(i), phase: 'reveal', review: true,
+    correct: r.correct || null, counts: r.counts || null, okCount: r.okCount || 0, answered: r.answered || 0, players: r.players || 0, top: r.top || null,
+  });
+}
+async function showLeaderboard(i) {
+  const r = G.results[i] || {};
+  await store.set(`games/${pin}/state`, { ...baseFor(i), phase: 'leaderboard', review: true, top: r.top || null });
+}
+/** השלב האחרון של פריט (כדי לחזור אליו אחורה) */
+function lastStepOf(j) {
+  const it = G.items[j];
+  if (it.type !== 'quiz') return goTo(j);
+  if (!G.results[j]) return goTo(j);
+  if (j < G.items.length - 1 && it.points !== 0) return showLeaderboard(j);
+  return showReveal(j);
+}
+function stepBefore(i) {
+  if (i <= 0) return store.set(`games/${pin}/state`, { phase: 'lobby', index: -1 });
+  return lastStepOf(i - 1);
+}
+/** חזרה אחורה – שום מידע לא נמחק (חוץ משאלה שבוטלה באמצע) */
+async function goBack() {
+  const now = Date.now();
+  if (now - G.lastBack < 600 || now - G.lastAdvance < 400) return;
+  G.lastBack = now;
+  const st = G.state;
+  const i = st.index;
+  if (st.phase === 'lobby') return;
+  if (st.phase === 'question') {
+    const n = Object.keys((await store.get(`games/${pin}/answers/${i}`)) || {}).length;
+    const ok = await confirmDialog({
+      title: 'לבטל את השאלה ולחזור?',
+      text: n ? `${n} תשובות שכבר נשלחו לשאלה הזו יימחקו. כשתגיעו אליה שוב היא תתחיל מההתחלה.` : 'כשתגיעו לשאלה הזו שוב היא תתחיל מההתחלה.',
+      ok: 'ביטול השאלה וחזרה', cancel: 'להמשיך בשאלה',
+    });
+    if (!ok || G.state.phase !== 'question' || G.state.index !== i) return;
+    G.ending = true;
+    clearInterval(G.timer);
+    await store.update(`games/${pin}`, { [`answers/${i}`]: null });
+    return stepBefore(i);
+  }
+  if (st.phase === 'leaderboard') return showReveal(i);
+  if (st.phase === 'reveal' || st.phase === 'activity') return stepBefore(i);
+  if (st.phase === 'end') return lastStepOf(G.items.length - 1);
 }
 
 function rankList(scores) {
@@ -361,14 +470,17 @@ async function endQuestion() {
         ok = it.correct.includes(c);
         if (ok) { okCount++; pts = calcPoints(Math.max(0, (a.at || started) - started), it.time, it.points); }
       }
-      next[uid] = { score: (p.score || 0) + pts, rank: p.rank || null, last: { i, ok, pts, answered: did, c } };
+      const hist = { ...(p.hist && typeof p.hist === 'object' ? Object.fromEntries(Object.entries(p.hist).filter(([, v]) => v)) : {}) };
+      hist[i] = { ok, pts, answered: did, c };
+      next[uid] = { score: (p.score || 0) + pts, rank: p.rank || null, last: { i, ok, pts, answered: did, c }, hist };
     }
     const ranked = rankList(next);
-    ranked.forEach((x) => { next[x.uid].prevRank = next[x.uid].rank; next[x.uid].rank = x.rank; });
+    ranked.forEach((x) => { next[x.uid].prevRank = next[x.uid].rank; next[x.uid].rank = x.rank; next[x.uid].hist[i].rank = x.rank; });
     const top = ranked.slice(0, 5).map((x) => ({ uid: x.uid, name: x.name, score: x.score, rank: x.rank, prevRank: x.prevRank }));
     // עדכון חלקי של state – כך הטלפונים מקבלים רק את מה שהשתנה (חוסך תעבורה)
     await store.update(`games/${pin}`, {
       scores: next,
+      [`results/${i}`]: { correct: it.correct, counts, okCount, answered, players: playerCount(), top, startedAt: started },
       'state/phase': 'reveal', 'state/correct': it.correct, 'state/counts': counts, 'state/okCount': okCount,
       'state/answered': answered, 'state/players': playerCount(), 'state/top': top,
     });
@@ -475,7 +587,7 @@ function questionView() {
   const view = h('div', { class: 'phase-in q-wrap' + (media ? ' has-img' : '') + lengthClasses(it), style: { display: 'flex', flexDirection: 'column', height: '100%' } },
     qCountLine(it, st),
     h('div', { class: 'q-top' }, tm, media ? h('div', { class: 'q-center' }, qText, media) : qText, h('div', { class: 'ans-count' }, cnt, ofEl)),
-    h('div', { class: 'q-opts' + (it.options.length <= 2 ? ' two' : '') }, optEls));
+    h('div', { class: 'q-opts' + (it.options.length <= 2 ? ' two' : '') + ' n' + it.options.length }, optEls));
   addFit(() => fitQuestion(view, qText, optEls));
   const total = it.time * 1000;
   let lastSec = null;
@@ -518,7 +630,7 @@ function revealView() {
   const view = h('div', { class: 'reveal phase-in' + lengthClasses(it), style: { display: 'flex', flexDirection: 'column', height: '100%' } },
     qCountLine(it, st),
     qText,
-    h('div', { class: 'q-opts' + (it.options.length <= 2 ? ' two' : ''), style: { marginTop: '2.2vh' } }, it.options.map((o, k) => {
+    h('div', { class: 'q-opts' + (it.options.length <= 2 ? ' two' : '') + ' n' + it.options.length, style: { marginTop: '2.2vh' } }, it.options.map((o, k) => {
       const right = correct.includes(k);
       const bar = h('i', { class: 'bar', style: { width: '0%' } });
       bars.push([bar, ((counts[k] || 0) / maxC) * 100]);

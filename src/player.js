@@ -177,7 +177,7 @@ async function question() {
   const status = h('div');
   const listMode = opts.some((o) => o.length > 38 || o.includes('\n')) || isLong(it.text, 220);
   const xl = opts.some((o) => o.length > 200 || o.includes('\n'));
-  const grid = h('div', { class: 'p-opts' + (listMode ? ' list' : opts.length <= 2 ? ' single' : '') + (xl ? ' xl' : '') });
+  const grid = h('div', { class: 'p-opts' + (listMode ? ' list' : opts.length <= 2 ? ' single' : '') + (xl ? ' xl' : '') + (opts.length > 4 ? ' many' : '') });
   let locked = false;
 
   const lock = (k, msg) => {
@@ -232,9 +232,13 @@ function reveal() {
   const correct = toArray(st.correct);
   const render = () => {
     const s = P.score;
-    const last = s && s.last;
-    if (!last || last.i !== i) {
-      setBody(late ? waitCard('הצטרפת באמצע – מעולה!', 'השאלה הבאה בדרך. הסתכלו על הלוח.') : waitCard('מחשבים תוצאות…'), true);
+    // התוצאה של השאלה הזו – גם כשהמרצה חוזר אחורה לשאלה קודמת
+    const hist = s && s.hist;
+    const last = (hist && hist[i]) || (s && s.last && s.last.i === i ? s.last : null);
+    if (!last) {
+      const msg = st.review ? waitCard('השאלה הזו הייתה לפני שהצטרפת', 'הסתכלו על הלוח – התשובה הנכונה מוצגת שם.')
+        : late ? waitCard('הצטרפת באמצע – מעולה!', 'השאלה הבאה בדרך. הסתכלו על הלוח.') : waitCard('מחשבים תוצאות…');
+      setBody(msg, true);
       return;
     }
     const rightTxt = correct.map((c) => opts[c]).join(' / ');
@@ -252,7 +256,7 @@ function reveal() {
     }
     setBody(h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } }, card, rankLine()), true);
   };
-  let late = false;
+  let late = !!st.review;
   P.onScore = render;
   render();
   P.timer = setTimeout(() => { late = true; if (P.key === `reveal:${i}`) render(); }, 2500);

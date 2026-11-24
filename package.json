@@ -4,9 +4,10 @@
   "version": "1.0.0",
   "description": "חידון חי – משחק כיתתי בזמן אמת",
   "scripts": {
-    "build": "esbuild src/player.js src/host.js src/editor.js --bundle --format=iife --minify --target=es2020,chrome90,safari15,firefox90 --outdir=js --legal-comments=eof"
+    "build": "esbuild src/player.js src/host.js src/editor.js src/export.js --bundle --format=iife --minify --target=es2020,chrome90,safari15,firefox90 --outdir=js --legal-comments=eof"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "firebase": "^13.4.0",
     "qrcode-generator": "^2.0.4"
   },
