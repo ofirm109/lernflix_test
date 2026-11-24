@@ -68,10 +68,13 @@ export async function buildWorkbook(d) {
   addRow(s1, ['תאריך הייצוא', fmtDate(Date.now())]);
   addRow(s1, ['מספר משתתפים', players.length]);
   addRow(s1, ['שאלות חידון שנשאלו', `${asked.length} מתוך ${quizIdx.length}`]);
-  addRow(s1, ['פעילויות ללא תחרות', items.length - quizIdx.length]);
+  const slideCount = items.filter((it) => it.type === 'slide').length;
+  addRow(s1, ['פעילויות ללא תחרות', items.length - quizIdx.length - slideCount]);
+  if (slideCount) addRow(s1, ['שקפים', slideCount]);
   addRow(s1, []);
   addRow(s1, ['פריטים במשחק', ''], { bold: true, fill: SECTION_FILL });
-  items.forEach((it, i) => addRow(s1, [`${i + 1}. ${(TYPES[it.type] || {}).label || it.type}`, it.text || '']));
+  const itemText = (it) => (it.type === 'slide' ? [it.title, it.text].filter((x) => x && x.trim()).join(' – ') || (it.image ? '(תמונה)' : '') : it.text || '');
+  items.forEach((it, i) => addRow(s1, [`${i + 1}. ${(TYPES[it.type] || {}).label || it.type}`, itemText(it)]));
 
   // ------------------------------------------------ דירוג משתתפים
   if (quizIdx.length) {

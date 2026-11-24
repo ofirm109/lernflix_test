@@ -47,6 +47,7 @@ export const ICONS = {
   quiz: S('<circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.5-2.7 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/>'),
   cloud: S('<path d="M7 18.5h10.2a4.3 4.3 0 0 0 .6-8.6 5.8 5.8 0 0 0-11.1 1.4A3.6 3.6 0 0 0 7 18.5z"/>'),
   rating: S('<path d="M5 20V13M10 20V8M15 20v-5M20 20V4"/>'),
+  slide: S('<rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M12 16.5V20M8 20.5h8M6.5 8.5h7M6.5 12h11"/>'),
   bubbles: S('<path d="M4 5.5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 3.5v-3.5H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z"/><path d="M17 9h3a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1v3l-3-3h-3"/>'),
   plus: S('<path d="M12 5v14M5 12h14"/>'),
   play: S('<path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none"/>'),
@@ -71,6 +72,7 @@ export const ICONS = {
   info: S('<circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.5"/>'),
   alert: S('<path d="M12 3l10 18H2z"/><path d="M12 10v4.5M12 17.5v.5"/>'),
   lock: S('<rect x="4.5" y="10.5" width="15" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>'),
+  eye: S('<path d="M2.5 12s4-7 9.5-7 9.5 7 9.5 7-4 7-9.5 7-9.5-7-9.5-7z"/><circle cx="12" cy="12" r="3"/>'),
   eyeOff: S('<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c5.5 0 9.5 7 9.5 7a17 17 0 0 1-3 3.7M6.5 6.6C4 8.3 2.5 12 2.5 12s4 7 9.5 7a9.5 9.5 0 0 0 4.4-1.1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'),
   stop: S('<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>'),
   users: S('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/>'),
@@ -108,6 +110,7 @@ export const TYPES = {
   wordcloud: { label: 'ענן מילים', desc: 'כל משתתף שולח מילה או שתיים – הענן גדל בזמן אמת', icon: 'cloud', color: '#32A9E0', competitive: false, placeholder: 'למשל: במילה אחת – מה ביקורת טובה בעיניכם?' },
   rating: { label: 'דירוג 1–10', desc: 'המשתתפים מדרגים קריטריונים מ-1 עד 10 ורואים ממוצע', icon: 'rating', color: '#6236FF', competitive: false, placeholder: 'למשל: דרגו את המפגש של היום' },
   bubbles: { label: 'בועות מחשבה', desc: 'תשובות פתוחות שמופיעות על הלוח כבועות – באופן אנונימי', icon: 'bubbles', color: '#202C60', competitive: false, placeholder: 'למשל: מה תיקחו איתכם מהמפגש?' },
+  slide: { label: 'שקף', desc: 'שקף מידע בלי שאלה – כותרת, טקסט, תמונה או שילוב שלהם', icon: 'slide', color: '#0E8F9B', competitive: false, placeholder: 'הטקסט של השקף (אפשר כמה פסקאות, או להשאיר ריק ולהציג רק תמונה)…' },
 };
 
 /** מפתח סודי אקראי (לקישור המרצה) */
@@ -126,6 +129,7 @@ export function newItem(type) {
   if (type === 'wordcloud') return { ...base, maxWords: 3 };
   if (type === 'rating') return { ...base, criteria: ['', ''] };
   if (type === 'bubbles') return { ...base, maxPosts: 2 };
+  if (type === 'slide') return { ...base, title: '' };
   return base;
 }
 /** Firebase מחזיר לעיתים אובייקט במקום מערך */
@@ -145,6 +149,7 @@ export function normItem(it) {
   if (it.type === 'rating') out.criteria = toArray(it.criteria).map((s) => s || '');
   if (it.type === 'wordcloud') out.maxWords = Number(it.maxWords) || 3;
   if (it.type === 'bubbles') out.maxPosts = Number(it.maxPosts) || 2;
+  if (it.type === 'slide') out.title = it.title || '';
   out.id = it.id || uid8();
   out.text = it.text || '';
   return out;
@@ -152,6 +157,10 @@ export function normItem(it) {
 /** בעיות בפריט (לתצוגה בעורך) */
 export function itemProblems(it) {
   const p = [];
+  if (it.type === 'slide') {
+    if (!(it.title || '').trim() && !(it.text || '').trim() && !it.image) p.push('השקף ריק – הוסיפו כותרת, טקסט או תמונה');
+    return p;
+  }
   if (!it.text || !it.text.trim()) p.push('חסר נוסח לשאלה');
   if (it.type === 'quiz') {
     const filled = it.options.filter((o) => o.trim()).length;
@@ -173,6 +182,7 @@ export function prepareItem(raw) {
     return { ...it, options, correct };
   }
   if (it.type === 'rating') return { ...it, criteria: it.criteria.map((c) => c.trim()).filter(Boolean) };
+  if (it.type === 'slide') return { ...it, title: it.title.trim() };
   return it;
 }
 /** מה שהמשתתפים רואים (בלי התשובה הנכונה) */
@@ -183,6 +193,7 @@ export function publicItem(it) {
   if (it.type === 'wordcloud') o.maxWords = Number(it.maxWords) || 3;
   if (it.type === 'bubbles') o.maxPosts = Number(it.maxPosts) || 2;
   if (it.type === 'rating') o.criteria = it.criteria;
+  if (it.type === 'slide') o.title = it.title || '';
   return o;
 }
 /** ניקוד: תשובה נכונה = 500–1000 נק' (כפול הכפלה), לפי מהירות */

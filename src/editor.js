@@ -346,7 +346,7 @@ function renderHome() {
       h('p', null, 'כאן בונים משחקונים לכיתה: חידונים עם ניקוד, ענני מילים, דירוגים ובועות מחשבה.'),
       h('div', { class: 'steps3' },
         h('div', null, h('i', null, '1'), h('b', null, 'יוצרים קורס'), h('span', null, 'ובתוכו מפגשים ויחידות לימוד')),
-        h('div', null, h('i', null, '2'), h('b', null, 'מוסיפים פריטים'), h('span', null, 'שאלות חידון ופעילויות ללא תחרות')),
+        h('div', null, h('i', null, '2'), h('b', null, 'מוסיפים פריטים'), h('span', null, 'שאלות חידון, פעילויות ללא תחרות ושקפים')),
         h('div', null, h('i', null, '3'), h('b', null, 'מפעילים בכיתה'), h('span', null, 'הלוח מציג QR והמשתתפים עונים מהטלפון'))),
       h('div', { class: 'row', style: { justifyContent: 'center' } },
         h('button', { class: 'btn btn-primary btn-lg', onclick: addCourse }, icon('plus'), 'יצירת קורס ראשון'),
@@ -480,7 +480,7 @@ async function launch(unitId) {
 
 /** "חבילת הפעלה": עותק של היחידה שנגיש למי שיש לו את קישור המרצה (בלי התחברות) */
 function packItems(items) {
-  return JSON.parse(JSON.stringify(items.map((it) => prepareItem(it)), (k, v) => (k === '_uploading' ? undefined : v)));
+  return JSON.parse(JSON.stringify(items.map((it) => prepareItem(it)), (k, v) => (k === '_uploading' || k === '_touched' ? undefined : v)));
 }
 async function ensurePack(unitId) {
   if (S.itemsUnit === unitId) await flushSave();
@@ -526,13 +526,13 @@ function addItem(type) {
   renderItems();
   save();
   const card = S.itemsBox.querySelector(`[data-id="${it.id}"]`);
-  if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => card.querySelector('textarea').focus(), 350); }
+  if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => card.querySelector('.slide-title-in, textarea').focus(), 350); }
 }
 function renderItems() {
   if (!S.items.length) {
     S.itemsBox.replaceChildren(h('div', { class: 'card empty-items' },
       h('b', null, 'היחידה עדיין ריקה'),
-      'בחרו למטה איזה פריט להוסיף: שאלת חידון עם ניקוד, או פעילות ללא תחרות.'));
+      'בחרו למטה איזה פריט להוסיף: שאלת חידון עם ניקוד, פעילות ללא תחרות, או שקף מידע.'));
     return;
   }
   S.itemsBox.replaceChildren(...S.items.map((it, i) => itemCard(it, i)));
@@ -546,14 +546,16 @@ function itemCard(it, idx) {
   const t = TYPES[it.type];
   const warnBox = h('div');
   const updateWarn = () => {
-    const p = itemProblems(it).filter((x) => !(x === 'חסר נוסח לשאלה' && !it.text && isFresh(it)));
+    const p = itemProblems(it).filter((x) => !(x === 'חסר נוסח לשאלה' && !it.text && isFresh(it)) && !(x.startsWith('השקף ריק') && !it._touched));
     warnBox.replaceChildren(...p.map((x) => h('div', { class: 'warn' }, icon('alert'), x)));
     if (!p.length) card.classList.remove('invalid');
   };
-  const changed = () => { save(); updateWarn(); };
-  const ta = h('textarea', { class: 'textarea', rows: 2, maxlength: '4000', placeholder: t.placeholder, 'aria-label': 'נוסח', oninput: (e) => { it.text = e.target.value; autoGrow(e.target); changed(); } });
+  const changed = () => { if (it.type === 'slide') it._touched = true; save(); updateWarn(); };
+  const isSlide = it.type === 'slide';
+  const ta = h('textarea', { class: 'textarea', rows: isSlide ? 3 : 2, maxlength: isSlide ? '6000' : '4000', placeholder: t.placeholder, 'aria-label': isSlide ? 'טקסט השקף' : 'נוסח', oninput: (e) => { it.text = e.target.value; autoGrow(e.target); changed(); } });
   ta.value = it.text;
   setTimeout(() => autoGrow(ta), 0);
+  const titleIn = isSlide ? h('input', { class: 'input slide-title-in', maxlength: '200', placeholder: 'כותרת השקף (לא חובה)', 'aria-label': 'כותרת השקף', value: it.title || '', oninput: (e) => { it.title = e.target.value; changed(); } }) : null;
 
   const tools = h('div', { class: 'item-tools' },
     h('button', { class: 'btn btn-icon', title: 'הזזה למעלה', disabled: idx === 0, onclick: () => move(idx, -1) }, icon('up')),
@@ -564,8 +566,9 @@ function itemCard(it, idx) {
   const card = h('div', { class: 'card item-card', style: `--tc:${t.color}`, 'data-id': it.id },
     h('div', { class: 'item-head' },
       h('span', { class: 'item-num' }, String(idx + 1)),
-      h('span', { class: 'type-badge' }, icon(t.icon), t.label, h('span', { class: 'comp' }, t.competitive ? (it.points === 0 ? '· ללא ניקוד' : '· עם ניקוד') : '· ללא תחרות')),
+      h('span', { class: 'type-badge' }, icon(t.icon), t.label, h('span', { class: 'comp' }, isSlide ? '· לא שאלה' : t.competitive ? (it.points === 0 ? '· ללא ניקוד' : '· עם ניקוד') : '· ללא תחרות')),
       tools),
+    titleIn,
     ta,
     imageField(it),
     typeFields(it, changed),
@@ -668,7 +671,7 @@ function imageField(it) {
   if (it._uploading) return h('div', { class: 'img-field' }, h('div', { class: 'img-drop busy' }, h('div', { class: 'spinner', style: { width: '26px', height: '26px', borderWidth: '3px' } }), 'מכינים את התמונה…'));
   if (!it.image) {
     const drop = h('button', { class: 'img-drop', type: 'button', onclick: () => file.click() },
-      icon('image'), h('span', null, h('b', null, 'הוספת תמונה לשאלה'), h('small', null, 'בחירה מהמחשב, גרירה לכאן או הדבקה (Ctrl+V)')));
+      icon('image'), h('span', null, h('b', null, it.type === 'slide' ? 'הוספת תמונה לשקף' : 'הוספת תמונה לשאלה'), h('small', null, 'בחירה מהמחשב, גרירה לכאן או הדבקה (Ctrl+V)')));
     wireDrop(drop, it);
     return h('div', { class: 'img-field' }, drop, file);
   }
@@ -740,6 +743,9 @@ function typeFields(it, changed) {
       it.criteria.length < 8 ? h('button', { class: 'btn btn-soft btn-sm', style: { marginTop: '10px' }, onclick: () => { it.criteria.push(''); save(); rerenderCard(it); } }, icon('plus'), 'הוספת קריטריון') : null,
       h('div', { class: 'hint' }, icon('info'), 'כל משתתף מדרג כל קריטריון מ-1 עד 10. על הלוח מוצגים הממוצע וההתפלגות – בלי שמות.'));
   }
+  if (it.type === 'slide') {
+    return h('div', { class: 'hint' }, icon('info'), 'שקף הוא לא שאלה: הוא מוצג על הלוח ובטלפונים, בלי תשובות ובלי ניקוד. אפשר כותרת, טקסט, תמונה או כל שילוב – והגודל מותאם אוטומטית.');
+  }
   if (it.type === 'bubbles') {
     return h('div', null,
       h('div', { class: 'item-settings' },
@@ -800,7 +806,7 @@ async function doSave() {
   S.saveTimer = null;
   const id = S.itemsUnit;
   if (!id) return;
-  const items = JSON.parse(JSON.stringify(S.items, (k, v) => (k === '_uploading' ? undefined : v)));
+  const items = JSON.parse(JSON.stringify(S.items, (k, v) => (k === '_uploading' || k === '_touched' ? undefined : v)));
   try {
     const upd = { ['items/' + id]: items.length ? items : null, ['units/' + id + '/count']: items.length, ['units/' + id + '/updated']: store.TS };
     const u = S.units[id] || {};
@@ -895,6 +901,7 @@ async function seedSample() {
   const uid = store.newKey('units');
   const seedKey = randomKey();
   const items = [
+    { id: uid8(), type: 'slide', title: 'ברוכים הבאים!', text: 'במשחקון הקצר הזה נכיר את ערכי הליבה של המשרד.\nענו מהטלפון – תשובה נכונה ומהירה מזכה ביותר נקודות.' },
     { id: uid8(), type: 'quiz', text: 'איזה מהבאים הוא אחד מערכי הליבה של המשרד?', options: ['אובייקטיביות ואי-תלות', 'רווחיות', 'תחרותיות', 'מהירות על פני דיוק'], correct: [0], time: 20, points: 1 },
     { id: uid8(), type: 'wordcloud', text: 'במילה אחת – מה הופך ביקורת לביקורת טובה?', maxWords: 2 },
     { id: uid8(), type: 'quiz', text: 'נכון או לא נכון: נציבות תלונות הציבור מבררת תלונות המתקבלות מכל אדם.', options: ['נכון', 'לא נכון'], correct: [0], time: 15, points: 1 },

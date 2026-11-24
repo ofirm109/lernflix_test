@@ -133,6 +133,7 @@ function enterPhase() {
   if (st.phase === 'reveal') return reveal();
   if (st.phase === 'leaderboard') return leaderboard();
   if (st.phase === 'activity') return activity();
+  if (st.phase === 'slide') return slide();
   if (st.phase === 'end') return end();
 }
 
@@ -162,6 +163,28 @@ function qCard(it, i) {
     card.append(h('div', { class: 'p-imgnote' }, icon('image'), 'יש תמונה – הסתכלו על הלוח'));
   }
   return card;
+}
+
+// ---------------------------------------------------------------- שקף (לא שאלה)
+function slide() {
+  const i = P.state.index;
+  const it = P.state.item || {};
+  const title = (it.title || '').trim();
+  const text = (it.text || '').trim();
+  const card = h('div', { class: 'card p-slide phase-in' + (text.length > 500 ? ' xl' : '') },
+    h('div', { class: 'p-qhead' }, h('span', { class: 'row', style: { gap: '6px', color: TYPES.slide.color } }, icon('slide'), 'שקף')));
+  if (it.hasImage && it.imgPhone) {
+    const img = h('img', { class: 'p-img', alt: title || 'תמונת השקף' });
+    const show = (src) => { img.src = src; img.onclick = () => lightbox(src); };
+    if (mediaCache[i]) show(mediaCache[i]);
+    else store.get(`games/${P.pin}/media/${i}`).then((v) => { if (v) { mediaCache[i] = v; show(v); } else img.remove(); }).catch(() => img.remove());
+    card.append(img);
+  }
+  if (title) card.append(h('h2', { class: 'p-slide-title' }, title));
+  if (text) card.append(h('div', { class: 'p-slide-text' + (text.length > 220 || /\n\s*([•\-*–]|\d+[.)])/.test(text) ? ' long' : '') }, text));
+  if (it.hasImage && !it.imgPhone) card.append(h('div', { class: 'p-imgnote' }, icon('image'), 'יש תמונה – הסתכלו על הלוח'));
+  card.append(h('div', { class: 'p-slide-foot' }, icon('eye'), 'אין צורך לענות – המרצה ימשיך בעוד רגע'));
+  setBody(card, text.length < 260);
 }
 
 // ---------------------------------------------------------------- שאלה

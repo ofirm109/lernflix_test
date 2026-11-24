@@ -254,6 +254,7 @@ function enterPhase() {
   else if (st.phase === 'reveal') view = revealView();
   else if (st.phase === 'leaderboard') view = leaderboardView();
   else if (st.phase === 'activity') view = activityView();
+  else if (st.phase === 'slide') view = slideView();
   else if (st.phase === 'end') view = endView();
   stageEl.replaceChildren(view || '');
   phaseSound(st);
@@ -265,6 +266,7 @@ function phaseSound(st) {
   else if (st.phase === 'reveal') { music(null); sfx('reveal'); }
   else if (st.phase === 'leaderboard') { music(null); sfx('leaderboard'); }
   else if (st.phase === 'activity') { music('calm'); sfx('softStart'); }
+  else if (st.phase === 'slide') { music(null); sfx('slide'); }
   else if (st.phase === 'end') { music(null); sfx(G.meta.hasQuiz && toArray(st.top).length ? 'finale' : 'thanks'); }
   return it;
 }
@@ -282,13 +284,14 @@ function nextLabel() {
   const i = st.index;
   const isLast = i >= G.items.length - 1;
   const nextKind = G.items[i + 1] && G.items[i + 1].type;
-  const toNext = isLast ? (G.meta.hasQuiz ? 'לתוצאות הסופיות' : 'לסיום') : nextKind === 'quiz' ? 'לשאלה הבאה' : 'לפעילות הבאה';
+  const toNext = isLast ? (G.meta.hasQuiz ? 'לתוצאות הסופיות' : 'לסיום') : nextKind === 'quiz' ? 'לשאלה הבאה' : nextKind === 'slide' ? 'לשקף הבא' : 'לפעילות הבאה';
   switch (st.phase) {
     case 'lobby': return Object.keys(G.results || {}).length ? 'המשך המשחק' : 'התחלת המשחק';
     case 'question': return 'חשיפת התשובה';
     case 'reveal': return isLast ? 'לתוצאות הסופיות' : (G.items[i].points === 0 ? toNext : 'לטבלת המובילים');
     case 'leaderboard': return toNext;
     case 'activity': return toNext;
+    case 'slide': return toNext;
     default: return null;
   }
 }
@@ -297,7 +300,7 @@ function renderFoot() {
   const label = nextLabel();
   const kinds = G.meta.kinds || G.items.map((x) => x.type);
   const dots = h('div', { class: 'dots', 'aria-hidden': 'true' }, kinds.map((k, j) => h('i', {
-    class: (k === 'quiz' ? 'quiz ' : '') + (j < st.index ? 'done' : j === st.index ? 'cur' : ''), title: TYPES[k].label,
+    class: (k === 'quiz' ? 'quiz ' : k === 'slide' ? 'slide ' : '') + (j < st.index ? 'done' : j === st.index ? 'cur' : ''), title: TYPES[k].label,
   })));
   let progText = 'ממתינים למשתתפים';
   if (st.phase === 'end') progText = 'המשחק הסתיים';
@@ -352,7 +355,7 @@ async function advance() {
     if (G.items[i].points === 0) return goTo(i + 1);
     return store.update(`games/${pin}/state`, { phase: 'leaderboard' });
   }
-  if (st.phase === 'leaderboard' || st.phase === 'activity') {
+  if (st.phase === 'leaderboard' || st.phase === 'activity' || st.phase === 'slide') {
     if (i + 1 >= G.items.length) return finish();
     return goTo(i + 1);
   }
@@ -371,6 +374,8 @@ async function goTo(i) {
   if (it.type === 'quiz') {
     G.localStart = store.now();
     await store.set(`games/${pin}/state`, { ...base, phase: 'question', startedAt: store.TS });
+  } else if (it.type === 'slide') {
+    await store.set(`games/${pin}/state`, { ...base, phase: 'slide' });
   } else {
     await store.set(`games/${pin}/state`, { ...base, phase: 'activity', closed: false });
   }
@@ -428,7 +433,7 @@ async function goBack() {
     return stepBefore(i);
   }
   if (st.phase === 'leaderboard') return showReveal(i);
-  if (st.phase === 'reveal' || st.phase === 'activity') return stepBefore(i);
+  if (st.phase === 'reveal' || st.phase === 'activity' || st.phase === 'slide') return stepBefore(i);
   if (st.phase === 'end') return lastStepOf(G.items.length - 1);
 }
 
@@ -675,6 +680,31 @@ function leaderboardView() {
         h('span', { class: 'sc' }, fmt(x.score)));
     })) : h('div', { class: 'lb-empty' }, 'עדיין אין משתתפים בטבלה'));
   requestAnimationFrame(() => requestAnimationFrame(() => fills.forEach(([f, w]) => { f.style.width = w + '%'; })));
+  return view;
+}
+
+// ================================================================ שקף (לא שאלה)
+function slideView() {
+  const i = G.state.index;
+  const it = G.items[i];
+  const title = (it.title || '').trim();
+  const text = (it.text || '').trim();
+  const im = it.image ? G.images[i] : null;
+  const media = im ? h('div', { class: 'slide-media' }, h('img', { src: im.data, alt: title || 'תמונת השקף', title: 'לחיצה להגדלה', onclick: () => lightbox(im.data) })) : null;
+  const missing = it.image && !im ? h('div', { class: 'warn' }, icon('alert'), 'התמונה של השקף לא נמצאה') : null;
+  const len = text.length + (text.match(/\n/g) || []).length * 60;
+  const listy = /\n\s*([•\-*–]|\d+[.)])/.test(text);
+  const textEl = text ? h('div', { class: 'card slide-text' + (len < 90 && !listy ? ' short' : len > 600 ? ' long' : '') + (len < 260 && !listy ? ' center' : '') }, h('div', { class: 'st-in' }, text)) : null;
+  const titleEl = title ? h('h2', { class: 'slide-title' + (!text && !media ? ' solo' : '') }, title) : null;
+  const kind = media && textEl ? 'both' : media ? 'img' : textEl ? 'txt' : 'title';
+  const body = kind === 'title' ? null : h('div', { class: 'slide-body ' + kind }, textEl, media);
+  const view = h('div', { class: 'phase-in slide-wrap k-' + kind }, titleEl, body, missing);
+  if (titleEl) addFit(() => fitText(titleEl, 22));
+  if (textEl) addFit(() => {
+    textEl.classList.remove('scroll');
+    fitText(textEl, 15);
+    if (textEl.scrollHeight > textEl.clientHeight + 2) textEl.classList.add('scroll');
+  });
   return view;
 }
 

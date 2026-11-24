@@ -122,6 +122,12 @@ const SFX = {
   softStart(t) {
     [72, 76, 79].forEach((m, i) => voice(sfxBus, { f: N(m), t: t + i * 0.09, d: 0.9, type: 'sine', v: 0.1 }));
   },
+  /** מעבר לשקף – "דפדוף" רך וצליל קצר */
+  slide(t) {
+    noise(sfxBus, { t, d: 0.28, v: 0.05, type: 'bandpass', freq: 900, sweepTo: 3500, q: 0.9, a: 0.08 });
+    voice(sfxBus, { f: N(79), t: t + 0.16, d: 0.7, type: 'sine', v: 0.08 });
+    voice(sfxBus, { f: N(84), t: t + 0.24, d: 0.8, type: 'sine', v: 0.06 });
+  },
   answer(t) { voice(sfxBus, { f: 1500, f2: 2100, t, d: 0.06, type: 'sine', v: 0.05 }); },
   tick(t, n) {
     const hi = n <= 3;
