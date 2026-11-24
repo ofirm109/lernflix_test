@@ -738,3 +738,13 @@ body.player { min-height: 100vh; min-height: 100dvh; background: var(--bg); }
 .p-slide.xl .p-slide-text { font-size: 16px; }
 .p-slide-foot { margin-top: 16px; display: inline-flex; gap: 6px; align-items: center; font-size: 13px; font-weight: 600; color: var(--muted); }
 .p-slide-foot svg { width: 16px; height: 16px; }
+
+/* ---------------------------------------------------------------- שליטה במשחק ממסך אחר */
+.lobby-new { align-self: center; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 6px 12px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px; }
+.lobby-new:hover { color: var(--navy); background: rgba(32, 44, 96, .06); }
+.lobby-new svg { width: 15px; height: 15px; }
+.control-lost { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 24px; background: rgba(250, 250, 255, .86); backdrop-filter: blur(4px); }
+.control-lost .card { max-width: 560px; padding: 36px 40px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.control-lost .card > svg { width: 44px; height: 44px; color: var(--blue); }
+.control-lost h2 { font-size: 26px; color: var(--navy); }
+.control-lost p { color: var(--muted); font-size: 17px; margin-bottom: 8px; }

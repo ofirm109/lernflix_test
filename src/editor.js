@@ -113,7 +113,12 @@ async function cleanupOldGames() {
     const old = await store.olderThan('games', 'meta/created', store.now() - 3 * 86400000);
     const upd = {};
     for (const pin of Object.keys(old)) { upd['games/' + pin] = null; upd['secret/' + pin] = null; }
-    if (Object.keys(upd).length) await store.update('', upd);
+    if (Object.keys(upd).length) {
+      await store.update('', upd);
+      const cl = {};
+      for (const pin of Object.keys(old)) cl['claims/' + pin] = null;
+      await store.update('', cl).catch(() => {});
+    }
   } catch (e) { console.warn('cleanup skipped', e); }
 }
 

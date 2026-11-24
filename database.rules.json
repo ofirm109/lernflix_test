@@ -42,6 +42,16 @@
         ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && !data.exists() && newData.parent().parent().child('games').child($pin).child('meta/host').val() === auth.uid && root.child('hostpack').child(newData.child('key').val()).exists() && root.child('hostpack').child(newData.child('key').val()).child('unitId').val() === newData.parent().parent().child('games').child($pin).child('meta/unitId').val())"
       }
     },
+    "claims": {
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$pin": {
+        "$uid": {
+          ".read": false,
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isString() && newData.val().length >= 10 && newData.val().length <= 80"
+        }
+      }
+    },
     "live": {
       "$unitId": {
         ".read": "auth != null",
@@ -55,7 +65,7 @@
       ],
       "$pin": {
         ".read": "auth != null",
-        ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && data.child('meta/host').val() === auth.uid) || (auth != null && !data.exists() && newData.child('meta/host').val() === auth.uid && newData.parent().parent().child('secret').child($pin).child('key').exists())",
+        ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && data.child('meta/host').val() === auth.uid) || (auth != null && !data.exists() && newData.child('meta/host').val() === auth.uid && newData.parent().parent().child('secret').child($pin).child('key').exists()) || (auth != null && data.exists() && newData.child('meta/host').val() === auth.uid && root.child('secret').child($pin).child('key').exists() && root.child('claims').child($pin).child(auth.uid).val() === root.child('secret').child($pin).child('key').val() && root.child('hostpack').child(root.child('secret').child($pin).child('key').val()).exists())",
         "players": {
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && root.child('games').child($pin).child('meta').exists() && !root.child('games').child($pin).child('kicked').child($uid).exists()",

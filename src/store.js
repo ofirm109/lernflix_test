@@ -6,6 +6,16 @@ import {
 import { getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 
 const CFG = window.QUIZ_CONFIG || {};
+const SIGNUP_MARK = 'livequiz-signup-at';
+function waitForUser(auth, ms) {
+  return new Promise((res) => {
+    let un = () => {};
+    const t = setTimeout(() => { un(); res(auth.currentUser); }, ms);
+    un = onAuthStateChanged(auth, (u) => { if (u) { clearTimeout(t); setTimeout(() => un(), 0); res(u); } });
+  });
+}
+export function isPermError(e) { return /PERMISSION_DENIED|permission/i.test((e && (e.code || e.message)) || ''); }
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hasFirebase = !!(CFG.firebase && CFG.firebase.apiKey && CFG.firebase.databaseURL);
 
 // ---------------------------------------------------------------------------
@@ -37,10 +47,52 @@ class FirebaseStore {
     const u = this.auth.currentUser;
     return !!u && !u.isAnonymous && this._admin;
   }
+  /**
+   * מוודא שיש משתמש מחובר (אנונימי למשתתפים). מוגן מפני שתי לשוניות שנפתחות יחד:
+   * רק לשונית אחת יוצרת זהות, והשנייה ממתינה לה – כך לא נוצרות שתי זהויות שדורסות זו את זו.
+   */
   async ensureUser() {
     await this.authReady;
-    if (!this.auth.currentUser) await signInAnonymously(this.auth);
+    const run = async () => {
+      if (!this.auth.currentUser && Date.now() - Number(localStorage.getItem(SIGNUP_MARK) || 0) < 10000) {
+        await waitForUser(this.auth, 3000); // לשונית אחרת בדיוק יצרה זהות – מחכים שתגיע לכאן
+      }
+      if (!this.auth.currentUser) {
+        try { localStorage.setItem(SIGNUP_MARK, String(Date.now())); } catch {}
+        await signInAnonymously(this.auth);
+      } else {
+        // זהות שמורה מפעם קודמת – מוודאים שהיא עדיין תקפה (אחרת יוצרים חדשה)
+        try { await this.auth.currentUser.getIdToken(); } catch (e) { await this._replaceIfInvalid(e); }
+      }
+      return this.auth.currentUser.uid;
+    };
+    if (navigator.locks && navigator.locks.request) return navigator.locks.request('livequiz-auth', run);
+    return run();
+  }
+  async _replaceIfInvalid(e) {
+    const code = (e && e.code) || '';
+    if (/network|too-many/.test(code)) throw e;
+    const u = this.auth.currentUser;
+    if (u && !u.isAnonymous) throw e; // לא מנתקים מרצה מחובר
+    await signOut(this.auth).catch(() => {});
+    try { localStorage.setItem(SIGNUP_MARK, String(Date.now())); } catch {}
+    await signInAnonymously(this.auth);
+  }
+  /**
+   * תיקון חיבור אחרי "אין הרשאה": מרענן את אסימון הכניסה (כך שגם החיבור למסד מתעדכן),
+   * ואם הזהות כבר לא תקפה – יוצר זהות אנונימית חדשה. מחזיר את ה-uid העדכני.
+   */
+  async repairAuth() {
+    await this.authReady;
+    const u = this.auth.currentUser;
+    if (!u) return this.ensureUser();
+    try { await u.getIdToken(true); } catch (e) { await this._replaceIfInvalid(e); }
     return this.auth.currentUser.uid;
+  }
+  /** קריאה כשזהות המשתמש בלשונית משתנה (למשל התחברות/התנתקות בלשונית אחרת) */
+  onUserChange(cb) {
+    let first = true;
+    return onAuthStateChanged(this.auth, (u) => { if (first) { first = false; return; } cb(u ? u.uid : null); });
   }
   async login(email, password) {
     const cred = await signInWithEmailAndPassword(this.auth, String(email || '').trim(), password);
@@ -159,6 +211,8 @@ class DemoStore {
   uid() { return this._uid; }
   isAdmin() { return sessionStorage.getItem('livequiz-demo-admin') === '1' || localStorage.getItem('livequiz-demo-admin') === '1'; }
   async ensureUser() { return this._uid; }
+  async repairAuth() { return this._uid; }
+  onUserChange() { return () => {}; }
   async login() { localStorage.setItem('livequiz-demo-admin', '1'); }
   async logout() { localStorage.removeItem('livequiz-demo-admin'); sessionStorage.removeItem('livequiz-demo-admin'); }
   async get(p) { return clone(this._getAt(p)); }
@@ -192,6 +246,17 @@ class DemoStore {
 }
 
 export const store = hasFirebase ? new FirebaseStore(CFG.firebase) : new DemoStore();
+
+/** מריץ פעולה; אם נחסמה ב"אין הרשאה" – מרענן את החיבור ומנסה שוב (עד 3 פעמים, עם המתנה קצרה) */
+export async function retryOnPermission(fn, tries = 3) {
+  for (let a = 0; ; a++) {
+    try { return await fn(); } catch (e) {
+      if (!isPermError(e) || a >= tries) throw e;
+      try { await store.repairAuth(); } catch {}
+      await sleep(400 + a * 600);
+    }
+  }
+}
 
 /** הודעת שגיאה ידידותית לשגיאות Firebase */
 export function friendlyError(e) {

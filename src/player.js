@@ -1,5 +1,5 @@
 // מסך המשתתף (טלפון): הצטרפות, מענה לשאלות, פעילויות ותוצאות.
-import { store, friendlyError } from './store.js';
+import { store, friendlyError, isPermError, retryOnPermission } from './store.js';
 import { h, icon, shape, TYPES, toArray, fmt, demoBanner, logo, medalSvg, normWord, isLong, lightbox } from './common.js';
 
 const app = document.getElementById('app');
@@ -12,20 +12,52 @@ let headEl, bodyEl, scoreEl;
 
 // ================================================================ אתחול
 async function boot() {
-  try { P.uid = await store.ensureUser(); } catch (e) { return fatal('לא הצלחנו להתחבר', friendlyError(e)); }
-  if (!P.pin && P.unit) {
-    const live = await store.get(`live/${P.unit}`);
-    if (!live) return waitForLive();
-    P.pin = String(live);
-  }
-  if (!P.pin) return renderJoin();
-  const meta = await store.get(`games/${P.pin}/meta`);
-  if (!meta) return renderJoin('לא מצאנו משחק עם הקוד הזה. בדקו את הקוד שעל הלוח.');
-  P.meta = meta;
-  const me = await store.get(`games/${P.pin}/players/${P.uid}`);
-  if (me && me.name) { P.name = me.name; return enterGame(); }
+  try { P.uid = await store.ensureUser(); } catch (e) { return fatalRetry(e); }
+  let r;
+  try {
+    r = await retryOnPermission(async () => {
+      P.uid = store.uid();
+      let pin = P.pin;
+      if (!pin && P.unit) {
+        const live = await store.get(`live/${P.unit}`);
+        if (!live) return { wait: true };
+        pin = String(live);
+      }
+      if (!pin) return {};
+      const meta = await store.get(`games/${pin}/meta`);
+      if (!meta) return { pin, missing: true };
+      const me = await store.get(`games/${pin}/players/${P.uid}`);
+      return { pin, meta, me };
+    });
+  } catch (e) { return fatalRetry(e); }
+  if (r.wait) return waitForLive();
+  if (!r.pin) return renderJoin();
+  P.pin = r.pin;
+  if (r.missing) return renderJoin('לא מצאנו משחק עם הקוד הזה. בדקו את הקוד שעל הלוח.');
+  P.meta = r.meta;
+  if (r.me && r.me.name) { P.name = r.me.name; return enterGame(); }
   renderJoin();
 }
+
+/** הודעת שגיאה למשתתפים – בלי "אין הרשאה", עם הנחיה מה לעשות */
+function playerError(e) {
+  if (isPermError(e)) return 'החיבור למשחק לא הושלם. נסו שוב – ואם זה חוזר, רעננו את הדף.';
+  if (/too-many-requests/.test((e && e.code) || '')) return 'יותר מדי כניסות חדשות מאותה רשת בזמן קצר. המתינו דקה ונסו שוב, או התחברו דרך הגלישה הסלולרית.';
+  return friendlyError(e);
+}
+function fatalRetry(e) {
+  console.error(e);
+  shell(h('div', { class: 'card p-card' }, h('h1', null, 'לא הצלחנו להתחבר למשחק'), h('p', null, playerError(e)),
+    h('button', { class: 'btn btn-primary btn-lg btn-block', style: { marginTop: '16px' }, onclick: () => location.reload() }, icon('refresh'), 'לנסות שוב')));
+}
+/** שליחה מהטלפון: אם נחסמה ועדיין אפשר לענות – מתקנים את החיבור ומנסים שוב (בשקט) */
+function sendWithRetry(stillOpen, fn) {
+  return retryOnPermission(async () => {
+    if (!stillOpen()) throw stopWith('closed');
+    return fn();
+  }, 2);
+}
+function stopWith(msg) { const e = new Error(msg); e.stopMsg = msg; return e; }
 
 function shell(content, center = true) {
   app.replaceChildren(
@@ -63,17 +95,22 @@ function renderJoin(errMsg = '') {
       if (!name) { err.textContent = 'כתבו שם או כינוי'; nameIn.focus(); return; }
       btn.disabled = true;
       try {
-        const meta = await store.get(`games/${pin}/meta`);
-        if (!meta) { err.textContent = 'לא מצאנו משחק עם הקוד הזה'; btn.disabled = false; return; }
-        if (await store.get(`games/${pin}/kicked/${P.uid}`)) { err.textContent = 'הוסרת מהמשחק הזה על ידי המרצה'; btn.disabled = false; return; }
-        const st = await store.get(`games/${pin}/state`);
-        if (st && st.phase === 'end') { err.textContent = 'המשחק הזה כבר הסתיים'; btn.disabled = false; return; }
-        await store.update(`games/${pin}/players/${P.uid}`, { name, joined: store.TS, online: true });
+        // ניסיון חוזר שקט אם החיבור עוד לא הושלם (במקום הודעת "אין הרשאה")
+        const meta = await retryOnPermission(async () => {
+          P.uid = store.uid() || (await store.ensureUser());
+          const m = await store.get(`games/${pin}/meta`);
+          if (!m) throw stopWith('לא מצאנו משחק עם הקוד הזה');
+          if (await store.get(`games/${pin}/kicked/${P.uid}`)) throw stopWith('הוסרת מהמשחק הזה על ידי המרצה');
+          const st = await store.get(`games/${pin}/state`);
+          if (st && st.phase === 'end') throw stopWith('המשחק הזה כבר הסתיים');
+          await store.update(`games/${pin}/players/${P.uid}`, { name, joined: store.TS, online: true });
+          return m;
+        });
         localStorage.setItem('livequiz-player', JSON.stringify({ name }));
         P.pin = pin; P.meta = meta; P.name = name;
         history.replaceState(null, '', '?pin=' + pin);
         enterGame();
-      } catch (ex) { err.textContent = friendlyError(ex); btn.disabled = false; }
+      } catch (ex) { err.textContent = ex.stopMsg || playerError(ex); btn.disabled = false; }
     },
   },
   logo(),
@@ -93,6 +130,19 @@ function enterGame() {
   bodyEl = h('main', { class: 'p-body center' });
   app.replaceChildren(demoBanner(store, true) || '', h('div', { class: 'p-wrap' }, h('div', { class: 'p-ribbon' }), headEl, bodyEl));
   P.unsubs.push(store.presence(`games/${P.pin}/players/${P.uid}/online`));
+  // אם הזהות בדפדפן התחלפה (למשל הדף נפתח בלשונית נוספת) – מצטרפים מחדש אוטומטית עם אותו שם
+  P.unsubs.push(store.onUserChange(async (uid) => {
+    if (!uid) { store.ensureUser().catch(() => {}); return; }
+    if (uid === P.uid || P.rejoining) return;
+    P.rejoining = true;
+    try {
+      await retryOnPermission(() => store.update(`games/${P.pin}/players/${store.uid()}`, { name: P.name, joined: store.TS, online: true }));
+      P.uid = store.uid();
+      stopAll();
+      enterGame();
+    } catch (e) { console.warn('rejoin failed', e); }
+    P.rejoining = false;
+  }));
   P.unsubs.push(store.on(`games/${P.pin}/state`, onState));
   P.unsubs.push(store.on(`games/${P.pin}/scores/${P.uid}`, (v) => { P.score = v; scoreEl.textContent = fmt((v && v.score) || 0); if (P.onScore) P.onScore(); }));
   let seen = false;
@@ -217,7 +267,8 @@ async function question() {
         lock(k, 'התשובה נקלטה! ממתינים לשאר…');
         if (navigator.vibrate) navigator.vibrate(30);
         try {
-          await store.set(`games/${P.pin}/answers/${i}/${P.uid}`, { c: k, at: store.TS });
+          await sendWithRetry(() => P.state.phase === 'question' && P.state.index === i,
+            () => store.set(`games/${P.pin}/answers/${i}/${store.uid()}`, { c: k, at: store.TS }));
         } catch (e) {
           lock(k, 'אופס, התשובה לא נקלטה – כנראה שהזמן נגמר.');
         }
@@ -366,7 +417,8 @@ function textActivity(it) {
         btn.disabled = true;
         try {
           const k = store.newKey(`games/${P.pin}/subs/${i}`);
-          await store.update(`games/${P.pin}`, { [`subs/${i}/${k}`]: { t: val, at: store.TS }, [`done/${i}/${P.uid}`]: doneCount + 1 });
+          await sendWithRetry(() => P.state.phase === 'activity' && P.state.index === i && !P.state.closed,
+            () => store.update(`games/${P.pin}`, { [`subs/${i}/${k}`]: { t: val, at: store.TS }, [`done/${i}/${store.uid()}`]: doneCount + 1 }));
           doneCount++;
           sent.push(isCloud ? val : '✓');
           sessionStorage.setItem(storeKey, JSON.stringify(sent));
@@ -427,7 +479,8 @@ function ratingActivity(it) {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       try {
-        await store.set(`games/${P.pin}/ratings/${i}/${P.uid}`, { r: vals, at: store.TS });
+        await sendWithRetry(() => P.state.phase === 'activity' && P.state.index === i && !P.state.closed,
+          () => store.set(`games/${P.pin}/ratings/${i}/${store.uid()}`, { r: vals, at: store.TS }));
         done = true;
         render();
       } catch (e) { err.textContent = P.state.closed ? 'התגובות נעצרו' : 'השליחה לא הצליחה. נסו שוב.'; btn.disabled = false; }
@@ -463,4 +516,4 @@ function end() {
   render();
 }
 
-boot().catch((e) => { console.error(e); fatal('שגיאה', friendlyError(e)); });
+boot().catch((e) => fatalRetry(e));

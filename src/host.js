@@ -1,6 +1,6 @@
 // לוח המשחק (מסך המרצה / מקרן): לובי עם QR, שאלות, חשיפת תשובה, טבלת מובילים, פעילויות ופודיום.
 import qrcode from 'qrcode-generator';
-import { store, friendlyError } from './store.js';
+import { store, friendlyError, isPermError, retryOnPermission } from './store.js';
 import {
   h, icon, shape, TYPES, toArray, prepareItem, itemProblems, publicItem, calcPoints, normWord, genPin, fmt, pageUrl,
   baseDisplayUrl, confirmDialog, demoBanner, logo, qrSvg, medalSvg, NEXT_KEYS, isLong, fitText, fitGroup, fitBalanced, lightbox, toast,
@@ -14,6 +14,8 @@ const params = new URLSearchParams(location.search);
 let unitId = params.get('unit');
 let hostKey = params.get('k');
 let pin = params.get('game');
+const forceNew = params.get('new') === '1';
+const RESUME_MAX_AGE = 12 * 3600 * 1000; // משחק פעיל של היחידה נמשך ממסך אחר עד 12 שעות מיצירתו
 
 const G = {
   meta: null, items: [], state: null, key: null, players: {}, scores: {},
@@ -41,26 +43,59 @@ async function boot() {
     hostKey = await store.get(`units/${unitId}/hostKey`);
   }
   if (!hostKey) return renderError('הקישור לא שלם', 'פתחו את המשחק מתוך ממשק העורך, או בקשו מהמרצה את "קישור להפעלה".');
-  let uid;
-  try { uid = await store.ensureUser(); } catch (e) { return renderError('לא הצלחנו להתחבר', friendlyError(e)); }
-  const pack = await store.get(`hostpack/${hostKey}`);
+  try { await store.ensureUser(); } catch (e) { return renderError('לא הצלחנו להתחבר', friendlyError(e)); }
+  const pack = await retryOnPermission(() => store.get(`hostpack/${hostKey}`));
   if (!pack || !pack.unitId) return renderError('הקישור כבר לא פעיל', 'ייתכן שנוצר למשחקון קישור מרצה חדש או שהיחידה נמחקה. בקשו את הקישור העדכני מממשק העורך.');
   unitId = pack.unitId;
   let resumed = false;
-  if (pin) {
-    const g = await store.get(`games/${pin}`);
-    if (g && g.meta && g.meta.unitId === unitId && (g.meta.host === uid || store.isAdmin())) {
-      try {
-        const sec = await store.get(`secret/${pin}`);
-        G.items = toArray(sec && sec.items).map(prepareItem);
-        G.images = await loadImages(G.items);
-        G.meta = g.meta;
-        resumed = G.items.length > 0;
-      } catch (e) { console.warn('resume failed', e); }
+  if (!forceNew) {
+    // ממשיכים את המשחק שבכתובת, ואם אין – את המשחק הפעיל של היחידה (גם אם נפתח במחשב אחר)
+    const livePin = await store.get(`live/${unitId}`).catch(() => null);
+    const tried = new Set();
+    for (const c of [pin, livePin && String(livePin)]) {
+      if (!c || tried.has(c)) continue;
+      tried.add(c);
+      if (await tryResume(c, c !== pin)) { resumed = true; break; }
     }
   }
-  if (!resumed) { const ok = await createGame(pack, uid); if (!ok) return; }
+  if (!resumed) { const ok = await retryOnPermission(() => createGame(pack, store.uid())); if (!ok) return; }
   startBoard();
+}
+
+/** ממשיך משחק קיים של היחידה. אם הוא נפתח במסך/דפדפן אחר – מעבירים אליו את השליטה בעזרת המפתח */
+async function tryResume(p, fromLive) {
+  try {
+    const g = await store.get(`games/${p}`);
+    if (!g || !g.meta || g.meta.unitId !== unitId) return false;
+    const ended = g.state && g.state.phase === 'end';
+    if (fromLive && (ended || store.now() - (g.meta.created || 0) > RESUME_MAX_AGE)) return false;
+    const mine = g.meta.host === store.uid();
+    if (!mine && !store.isAdmin()) {
+      if (ended) return false;
+      await claimGame(p);
+    }
+    const sec = await store.get(`secret/${p}`);
+    const items = toArray(sec && sec.items).map(prepareItem);
+    if (!items.length) return false;
+    pin = p;
+    G.items = items;
+    G.images = await loadImages(items);
+    G.meta = { ...g.meta, host: store.uid() };
+    if (g.meta.host !== store.uid()) await store.update(`games/${p}/meta`, { host: store.uid() });
+    history.replaceState(null, '', `?k=${encodeURIComponent(hostKey)}&game=${p}`);
+    if (!mine) setTimeout(() => toast(`ממשיכים כאן את המשחק הפעיל (קוד ${pinFmt(p)}) – המשתתפים נשארים`, 'ok'), 600);
+    return true;
+  } catch (e) {
+    console.warn('resume failed', p, e);
+    return false;
+  }
+}
+
+/** העברת השליטה במשחק למסך הזה: מוכיחים שמחזיקים במפתח המרצה ואז מעדכנים את המארח */
+async function claimGame(p) {
+  const me = store.uid();
+  await store.set(`claims/${p}/${me}`, hostKey);
+  await store.update(`games/${p}/meta`, { host: me });
 }
 
 function renderError(title, text) {
@@ -81,7 +116,7 @@ async function createGame(pack, uid) {
   const media = {};
   items.forEach((it, i) => { if (G.images[i] && it.imgPhone !== false) media[i] = G.images[i].small || G.images[i].data; });
   G.meta = {
-    unitId, title: pack.title || '', created: store.TS, host: uid,
+    unitId, title: pack.title || '', created: store.TS, host: store.uid() || uid,
     kinds: items.map((it) => it.type), hasQuiz: items.some((it) => it.type === 'quiz'),
   };
   await store.update('', {
@@ -114,14 +149,15 @@ function startBoard() {
   if (store.mode === 'demo') document.querySelector('.board-wrap').style.height = 'calc(100vh - 34px)';
 
   installUnlock();
+  watchControl();
   store.on(`games/${pin}/state`, onState);
   store.on(`games/${pin}/players`, (v) => { G.players = v || {}; onPlayers(); });
   store.on(`games/${pin}/scores`, (v) => { G.scores = v || {}; });
   store.on(`games/${pin}/results`, (v) => { G.results = v || {}; });
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, select, .modal')) return;
-    if (NEXT_KEYS.has(e.key)) { e.preventDefault(); advance(); }
-    else if (e.key === 'PageUp' || e.key === 'Backspace') { e.preventDefault(); goBack(); }
+    if (NEXT_KEYS.has(e.key)) { e.preventDefault(); guarded(advance); }
+    else if (e.key === 'PageUp' || e.key === 'Backspace') { e.preventDefault(); guarded(goBack); }
     else if (e.key === 'f' || e.key === 'F' || e.key === 'כ') toggleFull();
     else if (e.key === 'm' || e.key === 'M' || e.key === 'צ') setMuted(!isMuted());
   });
@@ -326,14 +362,61 @@ function renderFoot() {
     label ? h('span', { class: 'hint-k' }, 'אפשר גם ', h('kbd', null, 'רווח'), ' או שלט מצגות') : h('span', { class: 'grow' }),
   ];
   if (st.phase !== 'lobby') {
-    kids.push(h('button', { class: 'btn btn-ghost back-btn', onclick: goBack, id: 'back', title: 'חזרה לשלב הקודם (PageUp)' },
+    kids.push(h('button', { class: 'btn btn-ghost back-btn', onclick: () => guarded(goBack), id: 'back', title: 'חזרה לשלב הקודם (PageUp)' },
       icon('arrowRight', 'arr'), st.phase === 'question' ? 'ביטול השאלה' : 'הקודם'));
   }
   if (label) {
-    kids.push(h('button', { class: 'btn btn-primary next-btn' + (st.phase === 'lobby' && playerCount() > 0 ? ' pulse' : ''), onclick: advance, id: 'next' },
+    kids.push(h('button', { class: 'btn btn-primary next-btn' + (st.phase === 'lobby' && playerCount() > 0 ? ' pulse' : ''), onclick: () => guarded(advance), id: 'next' },
       label, icon('arrowLeft', 'arr')));
   }
   footEl.replaceChildren(...kids);
+}
+
+// ================================================================ שליטה במשחק (מסך אחד בכל רגע)
+let controlEl = null;
+function watchControl() {
+  const check = () => {
+    const lost = G.meta.host !== store.uid();
+    if (lost && !controlEl) {
+      controlEl = h('div', { class: 'control-lost' }, h('div', { class: 'card' },
+        icon('full'), h('h2', null, 'המשחק מנוהל עכשיו ממסך אחר'),
+        h('p', null, 'קישור המרצה נפתח במחשב או בדפדפן נוסף, והשליטה עברה אליו. המשתתפים והתשובות נשמרים.'),
+        h('button', { class: 'btn btn-primary btn-lg', onclick: (e) => takeBack(e.currentTarget) }, 'להמשיך לנהל מהמסך הזה')));
+      document.body.appendChild(controlEl);
+    } else if (!lost && controlEl) { controlEl.remove(); controlEl = null; }
+  };
+  store.on(`games/${pin}/meta/host`, (v) => { if (v) { G.meta.host = v; check(); } });
+  store.onUserChange(() => check());
+}
+async function takeBack(btn) {
+  if (btn) btn.disabled = true;
+  try {
+    await store.ensureUser();
+    if (store.isAdmin()) await store.update(`games/${pin}/meta`, { host: store.uid() });
+    else await retryOnPermission(() => claimGame(pin));
+    G.meta.host = store.uid();
+    if (controlEl) { controlEl.remove(); controlEl = null; }
+    toast('השליטה במשחק חזרה למסך הזה', 'ok');
+    return true;
+  } catch (e) {
+    console.error(e);
+    toast('לא הצלחנו להעביר את השליטה למסך הזה. רעננו את הדף.', 'bad');
+    if (btn) btn.disabled = false;
+    return false;
+  }
+}
+/** מריץ פעולת מרצה; אם נחסמה ("אין הרשאה") – מתקן את החיבור/השליטה ומנסה שוב פעם אחת */
+async function guarded(fn) {
+  if (controlEl) return;
+  try { await fn(); } catch (e) {
+    if (!isPermError(e)) { console.error(e); toast(friendlyError(e), 'bad'); return; }
+    G.lastAdvance = 0; G.lastBack = 0;
+    try { await store.repairAuth(); } catch {}
+    if (G.meta.host !== store.uid() && !store.isAdmin()) {
+      if (!(await takeBack())) return;
+    }
+    try { await fn(); } catch (e2) { console.error(e2); toast('הפעולה לא נשמרה – ' + friendlyError(e2), 'bad'); }
+  }
 }
 
 async function advance() {
@@ -490,8 +573,8 @@ async function endQuestion() {
       'state/answered': answered, 'state/players': playerCount(), 'state/top': top,
     });
   } catch (e) {
-    console.error(e);
     G.ending = false;
+    throw e;
   }
 }
 
@@ -530,7 +613,8 @@ function lobbyView() {
       h('div', { class: 'card players-card' },
         h('div', { class: 'ph' }, icon('users'), h('h3', null, 'משתתפים שהצטרפו'), count),
         chips, waiting,
-        h('div', { class: 'muted', style: { fontSize: '13px', marginTop: '8px' } }, 'לחיצה על שם מסירה את המשתתף מהמשחק'))));
+        h('div', { class: 'muted', style: { fontSize: '13px', marginTop: '8px' } }, 'לחיצה על שם מסירה את המשתתף מהמשחק')),
+      h('button', { class: 'lobby-new', onclick: newGame, title: 'סוגר את המשחק הזה ופותח משחק חדש עם קוד חדש' }, icon('refresh'), 'פתיחת משחק חדש מאפס')));
   G.onPlayersUpdate = () => {
     const entries = realPlayers().sort((a, b) => (a[1].joined || 0) - (b[1].joined || 0));
     count.textContent = fmt(entries.length);
@@ -555,6 +639,13 @@ function lobbyView() {
   lobbyReady = true;
   return view;
 }
+async function newGame() {
+  const ok = await confirmDialog({ title: 'לפתוח משחק חדש?', text: 'המשחק הזה ייסגר, ומי שכבר הצטרף יצטרך לסרוק את הקוד החדש.', ok: 'פתיחת משחק חדש', cancel: 'ביטול' });
+  if (!ok) return;
+  try { await store.update(`games/${pin}/state`, { phase: 'end', index: G.items.length, players: 0, top: null }); } catch (e) { console.warn(e); }
+  location.href = pageUrl('host.html', { k: hostKey, new: '1' });
+}
+
 async function kick(uid) {
   const p = G.players[uid];
   if (!p) return;
@@ -602,7 +693,7 @@ function questionView() {
     tm.set(left, total);
     const sec = Math.ceil(left / 1000);
     if (sec !== lastSec) { if (lastSec !== null && sec > 0 && sec <= 5) sfx('tick', sec); lastSec = sec; }
-    if (left <= 0) endQuestion();
+    if (left <= 0) guarded(endQuestion);
   };
   tick();
   G.timer = setInterval(tick, 200);
@@ -615,7 +706,7 @@ function questionView() {
     const on = onlineCount();
     cnt.textContent = fmt(n);
     ofEl.textContent = `מתוך ${fmt(on)} ענו`;
-    if (on > 0 && n >= on) setTimeout(() => { if (G.key === `question:${i}`) endQuestion(); }, 800);
+    if (on > 0 && n >= on) setTimeout(() => { if (G.key === `question:${i}`) guarded(endQuestion); }, 800);
   };
   G.phaseUnsub.push(store.on(`games/${pin}/answers/${i}`, (v) => { answers = v || {}; check(); }));
   G.onPlayersUpdate = check;
